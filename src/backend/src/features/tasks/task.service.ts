@@ -1,0 +1,174 @@
+import { AppError, assertFound } from "../../shared/errors.js";
+import type { StudyTask, User } from "../../domain/types.js";
+import type { TaskRepository } from "./task.repository.js";
+import type { z } from "zod";
+import type { createTaskSchema, reviewTaskSchema, submitTaskSchema, updateTaskSchema } from "./task.schemas.js";
+
+type CreateTaskInput = z.infer<typeof createTaskSchema>;
+type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
+type SubmitTaskInput = z.infer<typeof submitTaskSchema>;
+type ReviewTaskInput = z.infer<typeof reviewTaskSchema>;
+
+export class TaskService {
+  constructor(private readonly repository: TaskRepository) {}
+
+  listTodayTasks(user: User) {
+    const today = new Date().toISOString().slice(0, 10);
+    const childUserId = user.role === "child" ? user.id : "child-1";
+    return this.repository.listTodayTasks(user.familyId, childUserId, today).map((task) => this.withSubmission(task));
+  }
+
+  getTask(user: User, taskId: string) {
+    const task = assertFound(this.repository.findTaskById(taskId), "Task not found");
+    this.assertFamilyAccess(user, task);
+    return this.withSubmission(task);
+  }
+
+  createTask(parent: User, input: CreateTaskInput) {
+    if (parent.role !== "parent") {
+      throw new AppError(403, "FORBIDDEN", "Only parents can create tasks");
+    }
+
+    return this.repository.createTask({
+      familyId: parent.familyId,
+      childUserId: input.childUserId,
+      creatorUserId: parent.id,
+      subject: input.subject,
+      taskType: input.taskType,
+      title: input.title,
+      description: input.description,
+      dueDate: input.dueDate,
+      dueTime: input.dueTime,
+      needPhoto: input.needPhoto,
+      needAiCheck: input.needAiCheck
+    });
+  }
+
+  updateTask(parent: User, taskId: string, input: UpdateTaskInput) {
+    const task = assertFound(this.repository.findTaskById(taskId), "Task not found");
+    this.assertParentFamilyAccess(parent, task);
+
+    if (task.status !== "pending") {
+      throw new AppError(409, "TASK_NOT_EDITABLE", "Only pending tasks can be edited");
+    }
+
+    return this.repository.updateTask(taskId, input);
+  }
+
+  deleteTask(parent: User, taskId: string) {
+    const task = assertFound(this.repository.findTaskById(taskId), "Task not found");
+    this.assertParentFamilyAccess(parent, task);
+
+    if (task.status !== "pending") {
+      throw new AppError(409, "TASK_NOT_DELETABLE", "Only pending tasks can be deleted");
+    }
+
+    this.repository.deleteTask(taskId);
+  }
+
+  submitTask(child: User, taskId: string, input: SubmitTaskInput) {
+    const task = assertFound(this.repository.findTaskById(taskId), "Task not found");
+
+    if (child.role !== "child" || task.childUserId !== child.id || task.familyId !== child.familyId) {
+      throw new AppError(403, "FORBIDDEN", "Child cannot submit this task");
+    }
+
+    if (task.status !== "pending" && task.status !== "needs_resubmit") {
+      throw new AppError(409, "TASK_NOT_SUBMITTABLE", "Task cannot be submitted in current status");
+    }
+
+    const submission = this.repository.createSubmission({
+      taskId,
+      childUserId: child.id,
+      status: "submitted",
+      childNote: input.childNote
+    });
+    const images = this.repository.createImages(submission.id, input.imageUrls);
+    const nextStatus = task.needAiCheck ? "ai_checking" : "parent_review";
+    const updatedTask = this.repository.setTaskStatus(taskId, nextStatus);
+
+    return {
+      task: updatedTask,
+      submission,
+      images
+    };
+  }
+
+  reviewTask(parent: User, taskId: string, input: ReviewTaskInput) {
+    const task = assertFound(this.repository.findTaskById(taskId), "Task not found");
+    this.assertParentFamilyAccess(parent, task);
+
+    const submission = assertFound(this.repository.getLatestSubmission(taskId), "Submission not found");
+    const review = this.repository.createReview({
+      taskId,
+      submissionId: submission.id,
+      parentUserId: parent.id,
+      reviewResult: input.reviewResult,
+      comment: input.comment
+    });
+
+    const taskStatus = input.reviewResult === "pass" ? "confirmed" : "needs_resubmit";
+    const submissionStatus = input.reviewResult === "pass" ? "parent_confirmed" : "needs_resubmit";
+
+    this.repository.setTaskStatus(taskId, taskStatus);
+    submission.status = submissionStatus;
+    submission.updatedAt = new Date().toISOString();
+
+    return {
+      task: this.repository.findTaskById(taskId),
+      submission,
+      review
+    };
+  }
+
+  getParentDashboard(parent: User) {
+    if (parent.role !== "parent") {
+      throw new AppError(403, "FORBIDDEN", "Only parents can view dashboard");
+    }
+
+    const tasks = this.listTodayTasks(parent);
+    const summary = {
+      total: tasks.length,
+      confirmed: tasks.filter((task) => task.status === "confirmed").length,
+      pending: tasks.filter((task) => task.status === "pending").length,
+      needsResubmit: tasks.filter((task) => task.status === "needs_resubmit").length,
+      waitingReview: tasks.filter((task) => task.status === "parent_review").length
+    };
+
+    return {
+      summary,
+      tasks
+    };
+  }
+
+  private withSubmission(task: StudyTask) {
+    const submission = this.repository.getLatestSubmission(task.id);
+    const images = submission ? this.repository.listImages(submission.id) : [];
+
+    return {
+      ...task,
+      submission: submission
+        ? {
+            ...submission,
+            images
+          }
+        : null
+    };
+  }
+
+  private assertFamilyAccess(user: User, task: StudyTask) {
+    if (user.familyId !== task.familyId) {
+      throw new AppError(403, "FORBIDDEN", "Task is outside current family");
+    }
+
+    if (user.role === "child" && task.childUserId !== user.id) {
+      throw new AppError(403, "FORBIDDEN", "Child cannot access this task");
+    }
+  }
+
+  private assertParentFamilyAccess(parent: User, task: StudyTask) {
+    if (parent.role !== "parent" || parent.familyId !== task.familyId) {
+      throw new AppError(403, "FORBIDDEN", "Parent cannot access this task");
+    }
+  }
+}

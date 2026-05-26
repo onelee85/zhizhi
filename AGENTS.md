@@ -25,6 +25,11 @@ Weekly report is generated.
 
 ## Directory Rules
 
+- docs/ contains the project documentation.
+- docs/api.md contains the API documentation.
+- docs/prd.md contains the product requirements document.
+- src/frontend/ contains the frontend code.
+- src/backend/ contains the backend code.
 - app/ only contains routes, layouts, pages and route handlers.
 - features/ contains business modules.
 - server/ contains server-only infrastructure code.
@@ -60,3 +65,4 @@ Weekly report is generated.
 ## 每轮完成后必须更新
 - `docs/implement.md`
 - `docs/documentation.md`
+-  如果后端接口有变化更新 `docs/api.md`

@@ -34,11 +34,84 @@
 
 ## 目录约定
 
-- `app/`：只放路由、布局、页面和 route handlers。
-- `features/`：放业务模块和领域逻辑。
-- `server/`：放 server-only 基础设施代码。
-- `components/ui/`：放可复用 UI 组件。
+- `src/frontend/`：阶段 1 前端应用目录。
+- `src/frontend/app/`：只放路由、布局、页面和 route handlers。
+- `src/frontend/features/`：放前端 mock 数据和后续业务模块入口。
+- `src/frontend/components/ui/`：放可复用 UI 组件。
+- `src/backend/`：阶段 1 后端接口服务目录。
+- `src/backend/src/features/`：后端业务模块。
+- `src/backend/src/server/`：后端内存数据、认证会话等基础设施。
+- `src/backend/src/shared/`：后端通用 HTTP、路由和错误处理。
 - 页面组件只负责组合 UI 和调用接口，不直接写业务逻辑。
+
+## 当前前端骨架
+
+阶段 1 已创建可运行的 Next.js 前端骨架，当前只使用静态 mock 数据。
+
+前端专用说明文档位于 `src/frontend/README.md`，包含项目架构、依赖版本、启动、打包、部署和页面验证方式。
+
+已包含页面：
+
+- `/`：首页和阶段说明。
+- `/login`：用户名密码登录页骨架。
+- `/parent`：家长今日看板。
+- `/parent/tasks/new`：创建任务表单骨架。
+- `/parent/tasks/[taskId]`：家长任务详情页。
+- `/child`：孩子今日任务页。
+- `/child/tasks/[taskId]/check-in`：孩子打卡页骨架。
+- `/child/tasks/[taskId]/result`：提交结果页骨架。
+
+当前不包含：
+
+- 提交逻辑。
+- 后端 API。
+- MySQL 数据库。
+- 真实登录认证。
+- Qiniu 图片上传。
+- Alibaba Bailian AI 检查。
+
+## 当前后端接口
+
+阶段 1 已创建可运行的后端接口服务，当前只使用内存数据。
+
+后端专用说明文档位于 `src/backend/README.md`，包含项目架构、技术栈版本、运行方式、打包部署、测试账号和接口验证示例。
+
+服务地址：
+
+```text
+http://localhost:4000
+```
+
+测试账号：
+
+- 家长：`parent_demo` / `password123`
+- 孩子：`child_demo` / `password123`
+
+已包含接口：
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| `GET` | `/health` | 健康检查 |
+| `GET` | `/docs` | Swagger UI |
+| `GET` | `/openapi.json` | OpenAPI JSON |
+| `POST` | `/auth/login` | 用户名密码登录 |
+| `GET` | `/auth/me` | 当前用户 |
+| `GET` | `/parent/dashboard` | 家长今日看板 |
+| `GET` | `/tasks/today` | 今日任务 |
+| `POST` | `/tasks` | 家长创建任务 |
+| `GET` | `/tasks/:taskId` | 任务详情 |
+| `PATCH` | `/tasks/:taskId` | 家长编辑未完成任务 |
+| `DELETE` | `/tasks/:taskId` | 家长删除未完成任务 |
+| `POST` | `/tasks/:taskId/submissions` | 孩子提交打卡 |
+| `POST` | `/tasks/:taskId/reviews` | 家长审核提交 |
+
+当前后端不包含：
+
+- MySQL 持久化。
+- Qiniu 真实图片上传。
+- Alibaba Bailian AI 检查。
+- 错题记录。
+- 周报生成。
 
 ## 核心角色
 
@@ -150,3 +223,94 @@ AI 检查输出：
 - AI 可以生成完成度检查结果。
 - 家长可以确认或要求补充。
 - 系统可以基于一周数据生成报告。
+
+## 本地运行与页面验证
+
+前端运行目录：
+
+```bash
+cd /Users/lijiao/Documents/AI/zhizhi/src/frontend
+```
+
+安装依赖：
+
+```bash
+source ~/.nvm/nvm.sh
+nvm use v22
+pnpm install
+```
+
+启动开发服务：
+
+```bash
+pnpm dev
+```
+
+浏览器打开：
+
+```text
+http://localhost:3000
+```
+
+阶段 1 页面验证路径：
+
+- 首页：`http://localhost:3000`
+- 登录页：`http://localhost:3000/login`
+- 家长看板：`http://localhost:3000/parent`
+- 创建任务：`http://localhost:3000/parent/tasks/new`
+- 家长任务详情：`http://localhost:3000/parent/tasks/math-1`
+- 孩子今日任务：`http://localhost:3000/child`
+- 孩子打卡页：`http://localhost:3000/child/tasks/math-1/check-in`
+- 提交结果页：`http://localhost:3000/child/tasks/math-1/result`
+
+生产构建验证：
+
+```bash
+pnpm build
+```
+
+## 后端运行与接口验证
+
+后端运行目录：
+
+```bash
+cd /Users/lijiao/Documents/AI/zhizhi/src/backend
+```
+
+安装依赖：
+
+```bash
+source ~/.nvm/nvm.sh
+nvm use v22
+pnpm install
+```
+
+启动开发服务：
+
+```bash
+pnpm dev
+```
+
+健康检查：
+
+```bash
+curl --noproxy '*' http://localhost:4000/health
+```
+
+Swagger UI：
+
+```text
+http://localhost:4000/docs
+```
+
+OpenAPI JSON：
+
+```bash
+curl --noproxy '*' http://localhost:4000/openapi.json
+```
+
+生产构建验证：
+
+```bash
+pnpm build
+```
