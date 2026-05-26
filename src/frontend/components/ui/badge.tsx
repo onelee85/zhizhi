@@ -2,10 +2,13 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 const toneClass = {
-  neutral: "bg-slate-100 text-slate-700",
-  warning: "bg-amber-100 text-amber-800",
-  success: "bg-emerald-100 text-emerald-800",
-  danger: "bg-rose-100 text-rose-800"
+  neutral: "bg-surface-card text-body",
+  warning: "bg-brand-ochre/30 text-ink",
+  success: "bg-brand-mint/50 text-ink",
+  danger: "bg-brand-coral/20 text-ink",
+  pink: "bg-brand-pink/20 text-ink",
+  lavender: "bg-brand-lavender/40 text-ink",
+  peach: "bg-brand-peach/30 text-ink"
 };
 
 export function Badge({
@@ -16,7 +19,7 @@ export function Badge({
   tone?: keyof typeof toneClass;
 }) {
   return (
-    <span className={cn("inline-flex rounded-full px-2.5 py-1 text-xs font-medium", toneClass[tone])}>
+    <span className={cn("inline-flex rounded-pill px-3 py-1 text-caption", toneClass[tone])}>
       {children}
     </span>
   );

@@ -5,8 +5,8 @@ export default function LoginPage() {
   return (
     <div className="mx-auto grid max-w-md gap-6">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-950">用户名密码登录</h1>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
+        <h1 className="text-title-lg text-ink">用户名密码登录</h1>
+        <p className="mt-2 text-body-sm text-muted">
           阶段 1 仅展示登录入口骨架，认证逻辑将在后续接入 MySQL 用户体系时实现。
         </p>
       </div>

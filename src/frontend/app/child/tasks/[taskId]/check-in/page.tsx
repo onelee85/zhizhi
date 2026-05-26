@@ -19,8 +19,8 @@ export default async function CheckInPage({
           <Badge>{task.subject}</Badge>
           <Badge tone={statusTone[task.status]}>{statusLabel[task.status]}</Badge>
         </div>
-        <h1 className="mt-3 text-2xl font-semibold text-slate-950">{task.title}</h1>
-        <p className="mt-2 text-sm leading-6 text-slate-600">{task.description}</p>
+        <h1 className="mt-3 text-title-lg text-ink">{task.title}</h1>
+        <p className="mt-2 text-body-sm text-muted">{task.description}</p>
       </div>
 
       <Card>

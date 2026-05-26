@@ -7,16 +7,16 @@ type ButtonProps = ComponentPropsWithoutRef<"button"> & {
 };
 
 const variantClass = {
-  primary: "bg-slate-950 text-white hover:bg-slate-800",
-  secondary: "border border-slate-200 bg-white text-slate-950 hover:bg-slate-50",
-  ghost: "text-slate-700 hover:bg-slate-100"
+  primary: "bg-ink text-on-primary hover:bg-body-strong",
+  secondary: "border border-hairline bg-canvas text-ink hover:bg-surface-soft",
+  ghost: "text-body hover:bg-surface-soft"
 };
 
 export function Button({ className, variant = "primary", ...props }: ButtonProps) {
   return (
     <button
       className={cn(
-        "inline-flex h-10 items-center justify-center rounded-md px-4 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex h-11 items-center justify-center rounded-md px-5 text-button transition disabled:cursor-not-allowed disabled:opacity-40",
         variantClass[variant],
         className
       )}
@@ -42,7 +42,7 @@ export function ButtonLink({
     <Link
       href={href}
       className={cn(
-        "inline-flex h-10 items-center justify-center rounded-md px-4 text-sm font-medium transition",
+        "inline-flex h-11 items-center justify-center rounded-md px-5 text-button transition",
         variantClass[variant],
         className
       )}

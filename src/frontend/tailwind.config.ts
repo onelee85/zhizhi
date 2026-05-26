@@ -9,13 +9,83 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // Brand & Accent
+        "brand-pink": "#ff4d8b",
+        "brand-teal": "#1a3a3a",
+        "brand-lavender": "#b8a4ed",
+        "brand-peach": "#ffb084",
+        "brand-ochre": "#e8b94a",
+        "brand-mint": "#a4d4c5",
+        "brand-coral": "#ff6b5a",
+        // Surface
+        canvas: "#fffaf0",
+        "surface-soft": "#faf5e8",
+        "surface-card": "#f5f0e0",
+        "surface-strong": "#ebe6d6",
+        "surface-dark": "#0a1a1a",
+        "surface-dark-elevated": "#1a2a2a",
+        hairline: "#e5e5e5",
+        // Text
+        ink: "#0a0a0a",
+        "body-strong": "#1a1a1a",
+        body: "#3a3a3a",
+        muted: "#6a6a6a",
+        "muted-soft": "#9a9a9a",
+        "on-primary": "#ffffff",
+        "on-dark": "#ffffff",
+        // Semantic
+        success: "#22c55e",
+        warning: "#f59e0b",
+        error: "#ef4444",
+        // shadcn compatibility
         border: "hsl(var(--border))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
-        muted: "hsl(var(--muted))",
-        "muted-foreground": "hsl(var(--muted-foreground))",
-        primary: "hsl(var(--primary))",
-        "primary-foreground": "hsl(var(--primary-foreground))"
+        primary: {
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))"
+        },
+        "muted-shadcn": {
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))"
+        }
+      },
+      fontFamily: {
+        display: ["Inter", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "sans-serif"],
+        body: ["Inter", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "sans-serif"]
+      },
+      borderRadius: {
+        xs: "6px",
+        sm: "8px",
+        md: "12px",
+        lg: "16px",
+        xl: "24px",
+        pill: "9999px"
+      },
+      spacing: {
+        xxs: "4px",
+        xs: "8px",
+        sm: "12px",
+        md: "16px",
+        lg: "24px",
+        xl: "32px",
+        xxl: "48px",
+        section: "96px"
+      },
+      fontSize: {
+        "display-xl": ["72px", { lineHeight: "1.0", letterSpacing: "-2.5px", fontWeight: "500" }],
+        "display-lg": ["56px", { lineHeight: "1.05", letterSpacing: "-2px", fontWeight: "500" }],
+        "display-md": ["40px", { lineHeight: "1.1", letterSpacing: "-1px", fontWeight: "500" }],
+        "display-sm": ["32px", { lineHeight: "1.15", letterSpacing: "-0.5px", fontWeight: "500" }],
+        "title-lg": ["24px", { lineHeight: "1.3", letterSpacing: "-0.3px", fontWeight: "600" }],
+        "title-md": ["18px", { lineHeight: "1.4", fontWeight: "600" }],
+        "title-sm": ["16px", { lineHeight: "1.4", fontWeight: "600" }],
+        "body-md": ["16px", { lineHeight: "1.55", fontWeight: "400" }],
+        "body-sm": ["14px", { lineHeight: "1.55", fontWeight: "400" }],
+        caption: ["13px", { lineHeight: "1.4", fontWeight: "500" }],
+        "caption-uppercase": ["12px", { lineHeight: "1.4", letterSpacing: "1.5px", fontWeight: "600" }],
+        button: ["14px", { lineHeight: "1.0", fontWeight: "600" }],
+        "nav-link": ["14px", { lineHeight: "1.4", fontWeight: "500" }]
       }
     }
   },
