@@ -12,21 +12,29 @@ type ReviewTaskInput = z.infer<typeof reviewTaskSchema>;
 export class TaskService {
   constructor(private readonly repository: TaskRepository) {}
 
-  listTodayTasks(user: User) {
+  async listTodayTasks(user: User) {
     const today = new Date().toISOString().slice(0, 10);
-    const childUserId = user.role === "child" ? user.id : "child-1";
-    return this.repository.listTodayTasks(user.familyId, childUserId, today).map((task) => this.withSubmission(task));
+    const tasks =
+      user.role === "child"
+        ? await this.repository.listTodayTasks(user.familyId, user.id, today)
+        : await this.repository.listFamilyTodayTasks(user.familyId, today);
+
+    return Promise.all(tasks.map((task) => this.withSubmission(task)));
   }
 
-  getTask(user: User, taskId: string) {
-    const task = assertFound(this.repository.findTaskById(taskId), "Task not found");
+  async getTask(user: User, taskId: string) {
+    const task = assertFound(await this.repository.findTaskById(taskId), "Task not found");
     this.assertFamilyAccess(user, task);
     return this.withSubmission(task);
   }
 
-  createTask(parent: User, input: CreateTaskInput) {
+  async createTask(parent: User, input: CreateTaskInput) {
     if (parent.role !== "parent") {
       throw new AppError(403, "FORBIDDEN", "Only parents can create tasks");
+    }
+
+    if (!(await this.repository.isFamilyChild(parent.familyId, input.childUserId))) {
+      throw new AppError(403, "FORBIDDEN", "Child is outside current family");
     }
 
     return this.repository.createTask({
@@ -44,8 +52,8 @@ export class TaskService {
     });
   }
 
-  updateTask(parent: User, taskId: string, input: UpdateTaskInput) {
-    const task = assertFound(this.repository.findTaskById(taskId), "Task not found");
+  async updateTask(parent: User, taskId: string, input: UpdateTaskInput) {
+    const task = assertFound(await this.repository.findTaskById(taskId), "Task not found");
     this.assertParentFamilyAccess(parent, task);
 
     if (task.status !== "pending") {
@@ -55,19 +63,19 @@ export class TaskService {
     return this.repository.updateTask(taskId, input);
   }
 
-  deleteTask(parent: User, taskId: string) {
-    const task = assertFound(this.repository.findTaskById(taskId), "Task not found");
+  async deleteTask(parent: User, taskId: string) {
+    const task = assertFound(await this.repository.findTaskById(taskId), "Task not found");
     this.assertParentFamilyAccess(parent, task);
 
     if (task.status !== "pending") {
       throw new AppError(409, "TASK_NOT_DELETABLE", "Only pending tasks can be deleted");
     }
 
-    this.repository.deleteTask(taskId);
+    await this.repository.deleteTask(taskId);
   }
 
-  submitTask(child: User, taskId: string, input: SubmitTaskInput) {
-    const task = assertFound(this.repository.findTaskById(taskId), "Task not found");
+  async submitTask(child: User, taskId: string, input: SubmitTaskInput) {
+    const task = assertFound(await this.repository.findTaskById(taskId), "Task not found");
 
     if (child.role !== "child" || task.childUserId !== child.id || task.familyId !== child.familyId) {
       throw new AppError(403, "FORBIDDEN", "Child cannot submit this task");
@@ -77,15 +85,15 @@ export class TaskService {
       throw new AppError(409, "TASK_NOT_SUBMITTABLE", "Task cannot be submitted in current status");
     }
 
-    const submission = this.repository.createSubmission({
+    const submission = await this.repository.createSubmission({
       taskId,
       childUserId: child.id,
       status: "submitted",
       childNote: input.childNote
     });
-    const images = this.repository.createImages(submission.id, input.imageUrls);
+    const images = await this.repository.createImages(submission.id, input.imageUrls);
     const nextStatus = task.needAiCheck ? "ai_checking" : "parent_review";
-    const updatedTask = this.repository.setTaskStatus(taskId, nextStatus);
+    const updatedTask = await this.repository.setTaskStatus(taskId, nextStatus);
 
     return {
       task: updatedTask,
@@ -94,12 +102,12 @@ export class TaskService {
     };
   }
 
-  reviewTask(parent: User, taskId: string, input: ReviewTaskInput) {
-    const task = assertFound(this.repository.findTaskById(taskId), "Task not found");
+  async reviewTask(parent: User, taskId: string, input: ReviewTaskInput) {
+    const task = assertFound(await this.repository.findTaskById(taskId), "Task not found");
     this.assertParentFamilyAccess(parent, task);
 
-    const submission = assertFound(this.repository.getLatestSubmission(taskId), "Submission not found");
-    const review = this.repository.createReview({
+    const submission = assertFound(await this.repository.getLatestSubmission(taskId), "Submission not found");
+    const review = await this.repository.createReview({
       taskId,
       submissionId: submission.id,
       parentUserId: parent.id,
@@ -110,23 +118,26 @@ export class TaskService {
     const taskStatus = input.reviewResult === "pass" ? "confirmed" : "needs_resubmit";
     const submissionStatus = input.reviewResult === "pass" ? "parent_confirmed" : "needs_resubmit";
 
-    this.repository.setTaskStatus(taskId, taskStatus);
+    await this.repository.setTaskStatus(taskId, taskStatus);
+    await this.repository.updateSubmissionStatus(submission.id, submissionStatus);
     submission.status = submissionStatus;
     submission.updatedAt = new Date().toISOString();
 
     return {
-      task: this.repository.findTaskById(taskId),
+      task: await this.repository.findTaskById(taskId),
       submission,
       review
     };
   }
 
-  getParentDashboard(parent: User) {
+  async getParentDashboard(parent: User) {
     if (parent.role !== "parent") {
       throw new AppError(403, "FORBIDDEN", "Only parents can view dashboard");
     }
 
-    const tasks = this.listTodayTasks(parent);
+    const tasks = await Promise.all(
+      (await this.repository.listFamilyTasks(parent.familyId)).map((task) => this.withSubmission(task))
+    );
     const summary = {
       total: tasks.length,
       confirmed: tasks.filter((task) => task.status === "confirmed").length,
@@ -141,9 +152,9 @@ export class TaskService {
     };
   }
 
-  private withSubmission(task: StudyTask) {
-    const submission = this.repository.getLatestSubmission(task.id);
-    const images = submission ? this.repository.listImages(submission.id) : [];
+  private async withSubmission(task: StudyTask) {
+    const submission = await this.repository.getLatestSubmission(task.id);
+    const images = submission ? await this.repository.listImages(submission.id) : [];
 
     return {
       ...task,

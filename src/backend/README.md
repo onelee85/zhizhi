@@ -1,6 +1,6 @@
 # 知知小助手后端
 
-家庭学习任务打卡 MVP 的阶段 1 后端接口服务。当前版本使用内存数据实现用户名密码登录、今日任务、任务创建、孩子打卡提交和家长审核接口。
+家庭学习任务打卡 MVP 的阶段 1 后端接口服务。当前版本已接入 MySQL，实现用户名密码登录、今日任务、任务创建、孩子打卡提交和家长审核接口的数据持久化。
 
 ## 项目信息
 
@@ -10,16 +10,15 @@
 - 包管理器：pnpm
 - Node.js：建议使用 v22
 - 默认端口：`4000`
-- 当前数据模式：内存数据，服务重启后恢复内置 seed
+- 当前数据模式：MySQL，schema 和本地 seed 位于 `db/schema.sql`
 
 ## 当前边界
 
-- 不接入 MySQL。
 - 不接入 Qiniu Cloud Storage。
 - 不接入 Alibaba Bailian。
 - 不做真实图片上传，提交接口使用 `imageUrls` 模拟已上传图片地址。
-- 不做密码哈希，测试账号密码仅用于阶段 1 本地接口验证。
-- 不持久化数据，不提供生产级认证会话。
+- 登录用户存储在 MySQL，密码使用 scrypt 哈希校验。
+- 会话 token 仍保存在后端进程内存，重启后需要重新登录。
 
 ## 技术栈
 
@@ -27,6 +26,8 @@
 |---|---:|---|
 | Node.js | v22 | 运行时 |
 | TypeScript | 6.0.3 | 类型检查与构建 |
+| MySQL | 8.x | 数据持久化 |
+| mysql2 | 3.22.4 | MySQL 连接池和 SQL 执行 |
 | Zod | 4.3.6 | 请求参数校验 |
 | tsx | 4.21.0 | 本地 TypeScript 开发启动 |
 | 原生 Node HTTP server | Node 内置 | HTTP 服务 |
@@ -40,6 +41,8 @@ src/backend
 ├── package.json
 ├── pnpm-lock.yaml
 ├── tsconfig.json
+├── db
+│   └── schema.sql
 └── src
     ├── app.ts
     ├── server.ts
@@ -55,7 +58,8 @@ src/backend
     │       └── task.service.ts
     ├── server
     │   ├── auth.ts
-    │   └── db.ts
+    │   ├── db.ts
+    │   └── password.ts
     └── shared
         ├── errors.ts
         ├── http.ts
@@ -67,10 +71,34 @@ src/backend
 - `src/server.ts`：服务启动入口，读取 `PORT` 和 `HOST`。
 - `src/app.ts`：HTTP 路由注册和模块组装。
 - `src/docs/`：OpenAPI 规范和 Swagger UI 页面。
+- `db/schema.sql`：MySQL 建表脚本和本地 Demo seed。
 - `src/domain/`：领域类型定义。
 - `src/features/tasks/`：阶段 1 任务业务模块，包含 schema、service、repository。
-- `src/server/`：当前阶段的内存数据和登录会话。
+- `src/server/`：MySQL 连接池、登录认证和密码校验。
 - `src/shared/`：通用路由、HTTP 响应、错误处理。
+
+## MySQL 配置
+
+默认连接本地 MySQL：
+
+| 环境变量 | 默认值 |
+|---|---|
+| `MYSQL_HOST` | `127.0.0.1` |
+| `MYSQL_PORT` | `3306` |
+| `MYSQL_DATABASE` | `zhizhi` |
+| `MYSQL_ACCOUNT` | `root` |
+| `MYSQL_PASSWORD` | 空字符串 |
+| `MYSQL_CONNECTION_LIMIT` | `10` |
+
+本地开发时，服务会自动读取后端目录下的 `.env.local` 和 `.env`。已存在的 shell 环境变量优先级更高，不会被文件覆盖。
+
+初始化本地数据库。`db/schema.sql` 是完整初始化脚本，包含创建数据库、切换数据库、建表和 Demo seed：
+
+```bash
+mysql -h 127.0.0.1 -u root -p < db/schema.sql
+```
+
+如果使用图形 SQL 客户端，需要用“执行脚本/执行全部 SQL”的方式运行，不要只执行当前语句。脚本会创建 `zhizhi` 数据库、阶段 1 所需表，以及 Demo 家庭、家长、孩子和当天任务。Demo 密码均为 `password123`。
 
 ## 本地启动
 
@@ -170,7 +198,7 @@ pnpm build
 PORT=4000 pnpm start
 ```
 
-当前阶段没有必需环境变量。
+MySQL 连接环境变量需要在服务端运行环境中配置。
 
 后续接入生产能力时需要补充：
 
@@ -182,7 +210,7 @@ PORT=4000 pnpm start
 - `QINIU_ACCESS_KEY`
 - `QINIU_SECRET_KEY`
 - `BAILIAN_API_KEY`
-- 会话签名密钥
+- 生产级会话密钥
 
 敏感配置只能在服务端读取，不能暴露给前端。
 
@@ -274,8 +302,7 @@ curl --noproxy '*' -s http://localhost:4000/tasks/task-math-1/reviews \
 
 ## 当前未实现
 
-- MySQL schema、migration 和 repository 实现。
-- 密码哈希和生产级会话。
+- 生产级会话持久化。
 - Qiniu 图片上传。
 - Alibaba Bailian AI 检查。
 - 错题记录。

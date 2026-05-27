@@ -10,7 +10,7 @@ export default function HomePage() {
           家长布置任务，孩子拍照打卡，家长查看完成情况。
         </h1>
         <p className="max-w-2xl text-body-md text-body">
-          当前版本只创建阶段 1 页面骨架，使用静态数据展示核心路径，不包含后端、数据库、图片上传和提交逻辑。
+          当前版本已接入本地后端 API，支持用户名密码登录、任务创建、孩子打卡提交和家长审核。
         </p>
         <div className="flex flex-wrap gap-3 pt-2">
           <ButtonLink href="/login">查看登录页</ButtonLink>
@@ -37,9 +37,9 @@ export default function HomePage() {
           </p>
         </Card>
         <Card variant="ochre">
-          <CardTitle className="text-ink">阶段限制</CardTitle>
+          <CardTitle className="text-ink">当前边界</CardTitle>
           <p className="mt-2 text-body-sm text-ink/80">
-            表单按钮均为占位禁用状态，不会写入数据，也不会调用 API。
+            图片上传仍使用 URL 联调，Qiniu、AI 检查、错题和周报将在后续阶段接入。
           </p>
         </Card>
       </section>

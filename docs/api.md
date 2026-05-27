@@ -103,9 +103,9 @@ Authorization: Bearer <token>
 
 ## 家长端接口
 
-### GET /parent/dashboard - 家长今日看板
+### GET /parent/dashboard - 家长看板
 
-获取家长今日看板数据，包括今日任务统计等。
+获取家长看板数据，包括家庭全部任务统计等。
 
 **请求头:**
 ```
@@ -117,17 +117,33 @@ Authorization: Bearer <token>
 **响应 (200):**
 ```json
 {
-  "today": "2026-05-26",
-  "children": [
+  "summary": {
+    "total": 3,
+    "confirmed": 1,
+    "pending": 2,
+    "needsResubmit": 0,
+    "waitingReview": 0
+  },
+  "tasks": [
     {
-      "id": "child-1",
-      "nickname": "小明",
-      "pendingCount": 3,
-      "submittedCount": 1,
-      "confirmedCount": 2
+      "id": "task-1",
+      "familyId": "family-1",
+      "childUserId": "child-1",
+      "creatorUserId": "parent-1",
+      "subject": "数学",
+      "taskType": "作业",
+      "title": "完成数学计算练习第 3 页",
+      "description": "完成第 3 页全部计算题，订正错题并圈出不会的题。",
+      "dueDate": "2026-05-26",
+      "dueTime": "20:30",
+      "needPhoto": true,
+      "needAiCheck": false,
+      "status": "pending",
+      "createdAt": "2026-05-26T10:00:00.000Z",
+      "updatedAt": "2026-05-26T10:00:00.000Z",
+      "submission": null
     }
-  ],
-  "tasksNeedReview": []
+  ]
 }
 ```
 

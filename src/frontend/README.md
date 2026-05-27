@@ -1,6 +1,6 @@
 # 知知小助手前端
 
-家庭学习任务打卡 MVP 的前端项目。当前阶段只实现阶段 1 页面骨架，使用静态 mock 数据展示家长端和孩子端核心路径。
+家庭学习任务打卡 MVP 的前端项目。当前阶段已接入本地后端 API，支持登录、家长创建任务、孩子打卡提交和家长审核。
 
 ## 项目信息
 
@@ -9,7 +9,7 @@
 - 项目目录：`/Users/lijiao/Documents/AI/zhizhi/src/frontend`
 - 包管理器：pnpm
 - Node.js：建议使用 Node.js v22
-- 当前边界：不包含提交逻辑、后端 API、数据库、真实登录、真实图片上传和 AI 检查
+- 当前边界：不包含 Qiniu 真实图片上传、AI 检查、错题、周报和 CI
 
 ## 技术栈
 
@@ -30,6 +30,7 @@
 src/frontend
 ├── app
 │   ├── child
+│   ├── api/backend/[...path]/route.ts
 │   │   ├── page.tsx
 │   │   └── tasks/[taskId]
 │   │       ├── check-in/page.tsx
@@ -49,8 +50,18 @@ src/frontend
 │       ├── button.tsx
 │       └── card.tsx
 ├── features
+│   ├── api
+│   │   └── client.ts
+│   ├── auth
+│   │   └── login-form.tsx
 │   └── tasks
-│       ├── mock-data.ts
+│       ├── check-in-form.tsx
+│       ├── child-task-list.tsx
+│       ├── task-form.tsx
+│       ├── parent-dashboard.tsx
+│       ├── parent-task-detail.tsx
+│       ├── status.ts
+│       ├── submission-result.tsx
 │       └── types.ts
 ├── lib
 │   └── utils.ts
@@ -64,9 +75,11 @@ src/frontend
 
 目录职责：
 
-- `app/`：Next.js App Router 页面、布局和路由。
+- `app/`：Next.js App Router 页面、布局和同源代理 route handler。
 - `components/ui/`：基础可复用 UI 组件。
-- `features/tasks/`：阶段 1 任务类型和 mock 数据，后续承接任务业务模块。
+- `features/api/`：前端 API 客户端，统一处理 token、请求和错误响应。
+- `features/auth/`：登录交互模块。
+- `features/tasks/`：任务列表、创建、详情、打卡、审核和状态展示模块。
 - `lib/`：通用工具函数。
 
 ## 页面路由
@@ -74,13 +87,36 @@ src/frontend
 | 路由 | 说明 |
 |---|---|
 | `/` | 首页和阶段说明 |
-| `/login` | 用户名密码登录页骨架 |
+| `/login` | 用户名密码登录 |
 | `/parent` | 家长今日看板 |
-| `/parent/tasks/new` | 创建任务表单骨架 |
-| `/parent/tasks/math-1` | 家长任务详情页 |
+| `/parent/tasks/new` | 创建任务表单 |
+| `/parent/tasks/[taskId]` | 家长任务详情和审核页 |
 | `/child` | 孩子今日任务页 |
-| `/child/tasks/math-1/check-in` | 孩子打卡页骨架 |
-| `/child/tasks/math-1/result` | 提交结果页骨架 |
+| `/child/tasks/[taskId]/check-in` | 孩子打卡页 |
+| `/child/tasks/[taskId]/result` | 提交结果页 |
+
+## 后端 API
+
+前端页面调用同源路径 `/api/backend/*`，由 Next route handler 转发到后端。
+
+默认后端地址：
+
+```text
+http://localhost:4000
+```
+
+当前后端尚无家庭孩子列表接口，创建任务页阶段 1 使用 Demo seed 中的 `child-1` 作为默认孩子。
+
+如需覆盖：
+
+```bash
+NEXT_PUBLIC_API_BASE_URL=http://localhost:4000 pnpm dev
+```
+
+测试账号：
+
+- 家长：`parent_demo` / `password123`
+- 孩子：`child_demo` / `password123`
 
 ## 本地开发
 
@@ -150,7 +186,7 @@ pnpm build
 pnpm start
 ```
 
-当前阶段没有必需环境变量。后续接入后端、数据库、Qiniu 和 Alibaba Bailian 后，敏感配置必须只放在服务端环境变量中，不能暴露给客户端。
+当前前端只需要后端 Base URL。数据库、Qiniu Secret、Alibaba Bailian Key 等敏感配置必须只放在后端环境变量中，不能暴露给客户端。
 
 ## 验证方式
 
@@ -162,23 +198,16 @@ pnpm build
 
 页面验证：
 
-- 打开 `/`，确认能看到阶段 1 说明和家长端、孩子端入口。
-- 打开 `/login`，确认展示用户名密码登录页骨架。
-- 打开 `/parent`，确认展示今日任务统计和任务列表。
-- 打开 `/parent/tasks/new`，确认展示创建任务表单骨架，按钮为待实现状态。
-- 打开 `/parent/tasks/math-1`，确认展示任务详情、图片占位和家长审核占位。
-- 打开 `/child`，确认展示孩子今日任务清单。
-- 打开 `/child/tasks/math-1/check-in`，确认展示打卡表单骨架，提交按钮为待实现状态。
-- 打开 `/child/tasks/math-1/result`，确认展示提交结果页骨架。
+- 打开 `/login`，使用 `parent_demo` / `password123` 登录后进入家长端。
+- 打开 `/parent`，确认展示后端今日任务统计和任务列表。
+- 打开 `/parent/tasks/new`，创建任务后确认跳转到任务详情。
+- 使用 `child_demo` / `password123` 登录后打开 `/child`，确认展示孩子今日任务清单。
+- 打开 `/child/tasks/<taskId>/check-in`，填写图片 URL 后提交打卡。
+- 使用家长账号打开 `/parent/tasks/<taskId>`，确认可以通过或要求补充。
 
 ## 当前未实现
 
-- 登录认证。
-- 创建任务保存。
-- 打卡提交。
-- 图片上传。
-- 家长审核提交。
-- 后端 API。
-- MySQL 数据库。
+- Qiniu 图片上传。
 - AI 检查。
+- 错题和周报。
 - 测试用例和 CI。

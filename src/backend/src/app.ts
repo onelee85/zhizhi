@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { db } from "./server/db.js";
+import { pool } from "./server/db.js";
 import { login, requireRole, requireUser, sanitizeUser } from "./server/auth.js";
 import { Router } from "./shared/router.js";
 import { readJson, sendHtml, sendJson } from "./shared/http.js";
@@ -16,7 +16,7 @@ import {
 } from "./features/tasks/task.schemas.js";
 
 const router = new Router();
-const taskRepository = new TaskRepository(db);
+const taskRepository = new TaskRepository(pool);
 const taskService = new TaskService(taskRepository);
 
 router.add("GET", "/health", ({ response }) => {
@@ -36,67 +36,67 @@ router.add("GET", "/docs", ({ response }) => {
 
 router.add("POST", "/auth/login", async ({ request, response }) => {
   const body = loginSchema.parse(await readJson(request));
-  sendJson(response, 200, login(body.username, body.password));
+  sendJson(response, 200, await login(body.username, body.password));
 });
 
-router.add("GET", "/auth/me", ({ request, response }) => {
-  const user = requireUser(request.headers.authorization);
+router.add("GET", "/auth/me", async ({ request, response }) => {
+  const user = await requireUser(request.headers.authorization);
   sendJson(response, 200, {
     user: sanitizeUser(user)
   });
 });
 
-router.add("GET", "/parent/dashboard", ({ request, response }) => {
-  const parent = requireRole(request.headers.authorization, "parent");
-  sendJson(response, 200, taskService.getParentDashboard(parent));
+router.add("GET", "/parent/dashboard", async ({ request, response }) => {
+  const parent = await requireRole(request.headers.authorization, "parent");
+  sendJson(response, 200, await taskService.getParentDashboard(parent));
 });
 
-router.add("GET", "/tasks/today", ({ request, response }) => {
-  const user = requireUser(request.headers.authorization);
+router.add("GET", "/tasks/today", async ({ request, response }) => {
+  const user = await requireUser(request.headers.authorization);
   sendJson(response, 200, {
-    tasks: taskService.listTodayTasks(user)
+    tasks: await taskService.listTodayTasks(user)
   });
 });
 
 router.add("POST", "/tasks", async ({ request, response }) => {
-  const parent = requireRole(request.headers.authorization, "parent");
+  const parent = await requireRole(request.headers.authorization, "parent");
   const body = createTaskSchema.parse(await readJson(request));
   sendJson(response, 201, {
-    task: taskService.createTask(parent, body)
+    task: await taskService.createTask(parent, body)
   });
 });
 
-router.add("GET", "/tasks/:taskId", ({ request, response, params }) => {
-  const user = requireUser(request.headers.authorization);
+router.add("GET", "/tasks/:taskId", async ({ request, response, params }) => {
+  const user = await requireUser(request.headers.authorization);
   sendJson(response, 200, {
-    task: taskService.getTask(user, params.taskId)
+    task: await taskService.getTask(user, params.taskId)
   });
 });
 
 router.add("PATCH", "/tasks/:taskId", async ({ request, response, params }) => {
-  const parent = requireRole(request.headers.authorization, "parent");
+  const parent = await requireRole(request.headers.authorization, "parent");
   const body = updateTaskSchema.parse(await readJson(request));
   sendJson(response, 200, {
-    task: taskService.updateTask(parent, params.taskId, body)
+    task: await taskService.updateTask(parent, params.taskId, body)
   });
 });
 
-router.add("DELETE", "/tasks/:taskId", ({ request, response, params }) => {
-  const parent = requireRole(request.headers.authorization, "parent");
-  taskService.deleteTask(parent, params.taskId);
+router.add("DELETE", "/tasks/:taskId", async ({ request, response, params }) => {
+  const parent = await requireRole(request.headers.authorization, "parent");
+  await taskService.deleteTask(parent, params.taskId);
   sendJson(response, 204, null);
 });
 
 router.add("POST", "/tasks/:taskId/submissions", async ({ request, response, params }) => {
-  const child = requireRole(request.headers.authorization, "child");
+  const child = await requireRole(request.headers.authorization, "child");
   const body = submitTaskSchema.parse(await readJson(request));
-  sendJson(response, 201, taskService.submitTask(child, params.taskId, body));
+  sendJson(response, 201, await taskService.submitTask(child, params.taskId, body));
 });
 
 router.add("POST", "/tasks/:taskId/reviews", async ({ request, response, params }) => {
-  const parent = requireRole(request.headers.authorization, "parent");
+  const parent = await requireRole(request.headers.authorization, "parent");
   const body = reviewTaskSchema.parse(await readJson(request));
-  sendJson(response, 201, taskService.reviewTask(parent, params.taskId, body));
+  sendJson(response, 201, await taskService.reviewTask(parent, params.taskId, body));
 });
 
 export function createApp() {

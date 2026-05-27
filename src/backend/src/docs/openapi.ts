@@ -3,7 +3,7 @@ export const openApiSpec = {
   info: {
     title: "知知小助手后端 API",
     version: "0.1.0",
-    description: "阶段 1 后端接口，当前使用内存数据实现登录、任务、打卡提交和家长审核。"
+    description: "阶段 1 后端接口，当前使用 MySQL 实现登录、任务、打卡提交和家长审核。"
   },
   servers: [
     {

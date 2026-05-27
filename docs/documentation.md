@@ -36,43 +36,45 @@
 
 - `src/frontend/`：阶段 1 前端应用目录。
 - `src/frontend/app/`：只放路由、布局、页面和 route handlers。
-- `src/frontend/features/`：放前端 mock 数据和后续业务模块入口。
+- `src/frontend/features/`：放前端业务模块、API 客户端和任务类型。
 - `src/frontend/components/ui/`：放可复用 UI 组件。
 - `src/backend/`：阶段 1 后端接口服务目录。
 - `src/backend/src/features/`：后端业务模块。
-- `src/backend/src/server/`：后端内存数据、认证会话等基础设施。
+- `src/backend/src/server/`：后端 MySQL 连接池、认证会话、密码校验等基础设施。
+- `src/backend/db/schema.sql`：后端 MySQL schema 和本地 Demo seed。
 - `src/backend/src/shared/`：后端通用 HTTP、路由和错误处理。
 - 页面组件只负责组合 UI 和调用接口，不直接写业务逻辑。
 
-## 当前前端骨架
+## 当前前端
 
-阶段 1 已创建可运行的 Next.js 前端骨架，当前只使用静态 mock 数据。
+阶段 1 已创建可运行的 Next.js 前端，并已接入本地后端 API。
 
 前端专用说明文档位于 `src/frontend/README.md`，包含项目架构、依赖版本、启动、打包、部署和页面验证方式。
 
 已包含页面：
 
 - `/`：首页和阶段说明。
-- `/login`：用户名密码登录页骨架。
-- `/parent`：家长今日看板。
-- `/parent/tasks/new`：创建任务表单骨架。
-- `/parent/tasks/[taskId]`：家长任务详情页。
-- `/child`：孩子今日任务页。
-- `/child/tasks/[taskId]/check-in`：孩子打卡页骨架。
-- `/child/tasks/[taskId]/result`：提交结果页骨架。
+- `/login`：用户名密码登录页，调用 `POST /auth/login`。
+- `/parent`：家长今日看板，调用 `GET /parent/dashboard`，列表每项支持删除（`pending`/`needs_resubmit` 状态）。
+- `/parent/tasks/new`：创建任务表单，调用 `POST /tasks`。
+- `/parent/tasks/[taskId]`：家长任务详情和审核页，调用 `GET /tasks/:taskId` 和 `POST /tasks/:taskId/reviews`，`pending`/`needs_resubmit` 状态显示编辑和删除按钮。
+- `/parent/tasks/[taskId]/edit`：编辑任务表单，调用 `GET /tasks/:taskId` 预填并 `PATCH /tasks/:taskId` 保存。
+- `/child`：孩子今日任务页，调用 `GET /tasks/today`。
+- `/child/tasks/[taskId]/check-in`：孩子打卡页，调用 `GET /tasks/:taskId` 和 `POST /tasks/:taskId/submissions`。
+- `/child/tasks/[taskId]/result`：提交结果页，调用 `GET /tasks/:taskId`。
 
 当前不包含：
 
-- 提交逻辑。
-- 后端 API。
-- MySQL 数据库。
-- 真实登录认证。
-- Qiniu 图片上传。
+- Qiniu 真实图片上传。
 - Alibaba Bailian AI 检查。
+
+前端通过 `src/frontend/app/api/backend/[...path]/route.ts` 提供同源代理，默认转发到 `http://localhost:4000`，可通过 `NEXT_PUBLIC_API_BASE_URL` 覆盖。
+
+当前后端尚无家庭孩子列表接口，创建任务页阶段 1 使用 Demo seed 中的 `child-1` 作为默认孩子。
 
 ## 当前后端接口
 
-阶段 1 已创建可运行的后端接口服务，当前只使用内存数据。
+阶段 1 已创建可运行的后端接口服务，当前已接入 MySQL repository。
 
 后端专用说明文档位于 `src/backend/README.md`，包含项目架构、技术栈版本、运行方式、打包部署、测试账号和接口验证示例。
 
@@ -96,7 +98,7 @@ http://localhost:4000
 | `GET` | `/openapi.json` | OpenAPI JSON |
 | `POST` | `/auth/login` | 用户名密码登录 |
 | `GET` | `/auth/me` | 当前用户 |
-| `GET` | `/parent/dashboard` | 家长今日看板 |
+| `GET` | `/parent/dashboard` | 家长看板（家庭全部任务） |
 | `GET` | `/tasks/today` | 今日任务 |
 | `POST` | `/tasks` | 家长创建任务 |
 | `GET` | `/tasks/:taskId` | 任务详情 |
@@ -105,13 +107,43 @@ http://localhost:4000
 | `POST` | `/tasks/:taskId/submissions` | 孩子提交打卡 |
 | `POST` | `/tasks/:taskId/reviews` | 家长审核提交 |
 
+当前后端已包含：
+
+- MySQL 连接池。
+- 核心表 schema 和本地 Demo seed。
+- 用户名密码登录的 MySQL 用户读取和 scrypt 密码哈希校验。
+- 阶段 1 任务、提交、图片、审核接口的数据持久化。
+- 远程 MySQL 接口验证已覆盖登录、今日任务、家长看板、创建任务、任务详情、孩子提交、家长审核和基础权限拦截。
+
 当前后端不包含：
 
-- MySQL 持久化。
 - Qiniu 真实图片上传。
 - Alibaba Bailian AI 检查。
 - 错题记录。
 - 周报生成。
+
+后端 MySQL 默认环境变量：
+
+| 环境变量 | 默认值 |
+|---|---|
+| `MYSQL_HOST` | `127.0.0.1` |
+| `MYSQL_PORT` | `3306` |
+| `MYSQL_DATABASE` | `zhizhi` |
+| `MYSQL_ACCOUNT` | `root` |
+| `MYSQL_PASSWORD` | 空字符串 |
+
+本地开发时，后端会自动读取 `src/backend/.env.local` 和 `src/backend/.env`。已存在的 shell 环境变量优先级更高，不会被文件覆盖。
+
+初始化本地数据库。`db/schema.sql` 是完整初始化脚本，包含创建数据库、切换数据库、建表和 Demo seed：
+
+```bash
+cd /Users/lijiao/Documents/AI/zhizhi/src/backend
+mysql -h 127.0.0.1 -u root -p < db/schema.sql
+```
+
+如果使用图形 SQL 客户端，需要用“执行脚本/执行全部 SQL”的方式运行，不要只执行当前语句。
+
+兼容性说明：`db/schema.sql` 使用 `utf8mb4_unicode_ci`，避免依赖 MySQL 8 专属的 `utf8mb4_0900_ai_ci`。
 
 ## 核心角色
 
@@ -258,10 +290,10 @@ http://localhost:3000
 - 登录页：`http://localhost:3000/login`
 - 家长看板：`http://localhost:3000/parent`
 - 创建任务：`http://localhost:3000/parent/tasks/new`
-- 家长任务详情：`http://localhost:3000/parent/tasks/math-1`
+- 家长任务详情：`http://localhost:3000/parent/tasks/<taskId>`
 - 孩子今日任务：`http://localhost:3000/child`
-- 孩子打卡页：`http://localhost:3000/child/tasks/math-1/check-in`
-- 提交结果页：`http://localhost:3000/child/tasks/math-1/result`
+- 孩子打卡页：`http://localhost:3000/child/tasks/<taskId>/check-in`
+- 提交结果页：`http://localhost:3000/child/tasks/<taskId>/result`
 
 生产构建验证：
 

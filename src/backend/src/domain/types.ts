@@ -5,7 +5,7 @@ export type User = {
   familyId: string;
   role: UserRole;
   username: string;
-  password: string;
+  passwordHash: string;
   nickname: string;
 };
 
