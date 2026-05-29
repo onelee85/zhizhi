@@ -7,9 +7,9 @@ type ButtonProps = ComponentPropsWithoutRef<"button"> & {
 };
 
 const variantClass = {
-  primary: "bg-ink text-on-primary hover:bg-body-strong",
-  secondary: "border border-hairline bg-canvas text-ink hover:bg-surface-soft",
-  ghost: "text-body hover:bg-surface-soft"
+  primary: "bg-ink text-on-primary shadow-[inset_0_-2px_0_rgba(255,255,255,0.14)] hover:bg-body-strong",
+  secondary: "border border-hairline bg-canvas text-ink shadow-[inset_0_-1px_0_rgba(10,10,10,0.04)] hover:bg-surface-soft",
+  ghost: "text-body hover:bg-surface-soft hover:text-ink"
 };
 
 export function Button({ className, variant = "primary", ...props }: ButtonProps) {

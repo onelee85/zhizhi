@@ -23,7 +23,7 @@ export function Card({
   return (
     <section
       className={cn(
-        "rounded-xl border p-6",
+        "rounded-xl border p-6 md:p-8",
         variantStyles[variant],
         className
       )}
@@ -34,5 +34,5 @@ export function Card({
 }
 
 export function CardTitle({ children, className }: { children: ReactNode; className?: string }) {
-  return <h2 className={cn("text-title-sm text-ink", className)}>{children}</h2>;
+  return <h2 className={cn("text-title-md text-ink", className)}>{children}</h2>;
 }

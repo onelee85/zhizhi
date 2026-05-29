@@ -88,20 +88,20 @@ export function CheckInForm({ taskId }: { taskId: string }) {
   }
 
   return (
-    <div className="mx-auto grid max-w-2xl gap-6">
-      <div>
+    <div className="mx-auto grid max-w-4xl gap-6">
+      <div className="rounded-xl bg-brand-mint p-6 md:p-8">
         <div className="flex flex-wrap items-center gap-2">
           <Badge>{task.subject}</Badge>
           <Badge tone={statusTone[task.status]}>{statusLabel[task.status]}</Badge>
         </div>
-        <h1 className="mt-3 text-title-lg text-ink">{task.title}</h1>
-        <p className="mt-2 text-body-sm text-muted">{task.description}</p>
+        <h1 className="mt-4 text-display-md text-ink">{task.title}</h1>
+        <p className="mt-3 max-w-3xl text-body-md text-ink/75">{task.description}</p>
       </div>
 
       <Card>
-        <form className="grid gap-4" onSubmit={handleSubmit}>
+        <form className="grid gap-5" onSubmit={handleSubmit}>
           <CardTitle>完成并打卡</CardTitle>
-          <label className="flex items-center gap-2">
+          <label className="flex items-center gap-3 rounded-lg bg-surface-soft p-4">
             <input
               className="h-4 w-4"
               type="checkbox"

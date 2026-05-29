@@ -19,7 +19,7 @@ export function Badge({
   tone?: keyof typeof toneClass;
 }) {
   return (
-    <span className={cn("inline-flex rounded-pill px-3 py-1 text-caption", toneClass[tone])}>
+    <span className={cn("inline-flex items-center rounded-pill px-3 py-1 text-caption", toneClass[tone])}>
       {children}
     </span>
   );

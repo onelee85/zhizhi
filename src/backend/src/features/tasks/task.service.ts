@@ -106,7 +106,15 @@ export class TaskService {
     const task = assertFound(await this.repository.findTaskById(taskId), "Task not found");
     this.assertParentFamilyAccess(parent, task);
 
-    const submission = assertFound(await this.repository.getLatestSubmission(taskId), "Submission not found");
+    if (!["submitted", "ai_checking", "parent_review"].includes(task.status)) {
+      throw new AppError(409, "TASK_NOT_REVIEWABLE", "Task cannot be reviewed before child submission");
+    }
+
+    const submission = await this.repository.getLatestSubmission(taskId);
+    if (!submission) {
+      throw new AppError(409, "SUBMISSION_REQUIRED", "Task cannot be reviewed before child submission");
+    }
+
     const review = await this.repository.createReview({
       taskId,
       submissionId: submission.id,

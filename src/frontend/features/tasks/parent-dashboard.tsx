@@ -67,12 +67,13 @@ export function ParentDashboardView() {
     dashboard?.summary.waitingReview ?? tasks.filter((task) => task.status === "parent_review").length;
 
   return (
-    <div className="grid gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="grid gap-8">
+      <div className="grid gap-5 rounded-xl bg-surface-soft p-6 md:grid-cols-[1fr_auto] md:items-end md:p-8">
         <div>
-          <h1 className="text-title-lg text-ink">今日看板</h1>
-          <p className="mt-2 text-body-sm text-muted">
-            从后端加载家庭任务进度
+          <p className="text-caption-uppercase text-muted">Parent dashboard</p>
+          <h1 className="mt-3 text-display-md text-ink">今日看板</h1>
+          <p className="mt-3 max-w-2xl text-body-md text-body">
+            从后端加载家庭任务进度，快速定位待确认、需补充和已完成的学习任务。
           </p>
         </div>
         <ButtonLink href="/parent/tasks/new">创建任务</ButtonLink>
@@ -81,35 +82,40 @@ export function ParentDashboardView() {
       {error ? <Card className="text-body-sm text-brand-coral">{error}</Card> : null}
 
       <section className="grid gap-4 md:grid-cols-4">
-        <Card variant="cream">
-          <p className="text-caption text-muted">今日任务</p>
-          <p className="mt-2 text-display-sm text-ink">{isLoading ? "-" : total}</p>
+        <Card variant="pink" className="text-on-dark">
+          <p className="text-caption text-on-dark/70">今日任务</p>
+          <p className="mt-2 text-display-sm text-on-dark">{isLoading ? "-" : total}</p>
         </Card>
-        <Card variant="cream">
-          <p className="text-caption text-muted">已确认</p>
-          <p className="mt-2 text-display-sm text-ink">{isLoading ? "-" : done}</p>
+        <Card variant="teal" className="text-on-dark">
+          <p className="text-caption text-on-dark/70">已确认</p>
+          <p className="mt-2 text-display-sm text-on-dark">{isLoading ? "-" : done}</p>
         </Card>
-        <Card variant="cream">
-          <p className="text-caption text-muted">待确认</p>
+        <Card variant="lavender">
+          <p className="text-caption text-ink/70">待确认</p>
           <p className="mt-2 text-display-sm text-ink">{isLoading ? "-" : waitingReview}</p>
         </Card>
-        <Card variant="cream">
-          <p className="text-caption text-muted">需补充</p>
+        <Card variant="ochre">
+          <p className="text-caption text-ink/70">需补充</p>
           <p className="mt-2 text-display-sm text-ink">{isLoading ? "-" : needsResubmit}</p>
         </Card>
       </section>
 
-      <Card>
+      <Card className="overflow-hidden p-0 md:p-0">
         <div className="mb-4 flex items-center justify-between gap-4">
-          <CardTitle>任务列表</CardTitle>
-          <span className="text-caption text-muted-soft">后端实时数据</span>
+          <div className="px-6 pt-6 md:px-8 md:pt-8">
+            <CardTitle>任务列表</CardTitle>
+            <p className="mt-2 text-body-sm text-muted">后端实时数据</p>
+          </div>
+          <span className="mr-6 mt-6 rounded-pill bg-surface-card px-3 py-1 text-caption text-muted-soft md:mr-8 md:mt-8">
+            {tasks.length} 项
+          </span>
         </div>
         <div className="divide-y divide-hairline">
           {tasks.map((task) => (
             <Link
               key={task.id}
               href={`/parent/tasks/${task.id}`}
-              className="grid gap-3 py-4 transition-colors hover:bg-surface-soft/50 md:grid-cols-[1fr_auto]"
+              className="grid gap-4 px-6 py-5 transition-colors hover:bg-surface-soft/70 md:grid-cols-[1fr_auto] md:px-8"
             >
               <div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -117,10 +123,10 @@ export function ParentDashboardView() {
                   <Badge tone={statusTone[task.status]}>{statusLabel[task.status]}</Badge>
                   {getImageCount(task) > 0 ? <Badge tone="lavender">{getImageCount(task)} 张图</Badge> : null}
                 </div>
-                <h2 className="mt-2 text-title-sm text-ink">{task.title}</h2>
-                <p className="mt-1 text-body-sm text-muted">{task.description}</p>
+                <h2 className="mt-3 text-title-md text-ink">{task.title}</h2>
+                <p className="mt-1 max-w-3xl text-body-sm text-muted">{task.description}</p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 md:justify-end">
                 <span className="text-body-sm text-muted-soft">
                   截止 {task.dueTime ? task.dueTime : task.dueDate ?? "今日"}
                 </span>

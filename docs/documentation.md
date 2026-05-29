@@ -49,6 +49,8 @@
 
 阶段 1 已创建可运行的 Next.js 前端，并已接入本地后端 API。
 
+当前前端 UI 已按 `src/frontend/DESIGN.md` 的视觉方向统一：使用暖奶油画布、黑色主按钮、12px/24px 圆角控件、品牌色功能卡、彩色页面标题区和更明确的任务列表信息层级。
+
 前端专用说明文档位于 `src/frontend/README.md`，包含项目架构、依赖版本、启动、打包、部署和页面验证方式。
 
 已包含页面：
@@ -57,7 +59,7 @@
 - `/login`：用户名密码登录页，调用 `POST /auth/login`。
 - `/parent`：家长今日看板，调用 `GET /parent/dashboard`，列表每项支持删除（`pending`/`needs_resubmit` 状态）。
 - `/parent/tasks/new`：创建任务表单，调用 `POST /tasks`。
-- `/parent/tasks/[taskId]`：家长任务详情和审核页，调用 `GET /tasks/:taskId` 和 `POST /tasks/:taskId/reviews`，`pending`/`needs_resubmit` 状态显示编辑和删除按钮。
+- `/parent/tasks/[taskId]`：家长任务详情和审核页，调用 `GET /tasks/:taskId` 和 `POST /tasks/:taskId/reviews`；仅在任务已有提交且处于 `submitted`、`ai_checking` 或 `parent_review` 状态时显示确认通过/要求补充，`pending`/`needs_resubmit` 状态显示编辑和删除按钮。
 - `/parent/tasks/[taskId]/edit`：编辑任务表单，调用 `GET /tasks/:taskId` 预填并 `PATCH /tasks/:taskId` 保存。
 - `/child`：孩子今日任务页，调用 `GET /tasks/today`。
 - `/child/tasks/[taskId]/check-in`：孩子打卡页，调用 `GET /tasks/:taskId` 和 `POST /tasks/:taskId/submissions`。
@@ -105,7 +107,7 @@ http://localhost:4000
 | `PATCH` | `/tasks/:taskId` | 家长编辑未完成任务 |
 | `DELETE` | `/tasks/:taskId` | 家长删除未完成任务 |
 | `POST` | `/tasks/:taskId/submissions` | 孩子提交打卡 |
-| `POST` | `/tasks/:taskId/reviews` | 家长审核提交 |
+| `POST` | `/tasks/:taskId/reviews` | 家长审核提交，要求任务已有孩子提交且处于可审核状态 |
 
 当前后端已包含：
 

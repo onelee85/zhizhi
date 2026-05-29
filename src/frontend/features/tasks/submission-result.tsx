@@ -48,17 +48,17 @@ export function SubmissionResult({ taskId }: { taskId: string }) {
   }
 
   return (
-    <div className="mx-auto grid max-w-2xl gap-6">
-      <div>
+    <div className="mx-auto grid max-w-4xl gap-6">
+      <div className="rounded-xl bg-brand-ochre p-6 md:p-8">
         <div className="flex flex-wrap items-center gap-2">
           <Badge>{task.subject}</Badge>
           <Badge tone={statusTone[task.status]}>{statusLabel[task.status]}</Badge>
         </div>
-        <h1 className="mt-3 text-title-lg text-ink">提交结果</h1>
-        <p className="mt-2 text-body-sm text-muted">当前任务提交和家长确认状态。</p>
+        <h1 className="mt-4 text-display-md text-ink">提交结果</h1>
+        <p className="mt-3 max-w-2xl text-body-md text-ink/75">当前任务提交和家长确认状态。</p>
       </div>
 
-      <Card>
+      <Card className="bg-canvas/95">
         <CardTitle>{task.title}</CardTitle>
         <dl className="mt-4 grid gap-3 text-body-sm">
           <div className="flex justify-between gap-4">

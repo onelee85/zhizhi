@@ -405,7 +405,7 @@ Content-Type: application/json
 
 ### POST /tasks/:taskId/reviews - 审核任务 (家长)
 
-家长审核孩子提交的任务。
+家长审核孩子提交的任务。任务必须已有孩子提交，并处于 `submitted`、`ai_checking` 或 `parent_review` 状态。
 
 **请求头:**
 ```
@@ -440,6 +440,11 @@ Content-Type: application/json
   }
 }
 ```
+
+**错误响应:**
+
+- `409 TASK_NOT_REVIEWABLE`: 任务尚未提交或当前状态不可审核。
+- `409 SUBMISSION_REQUIRED`: 任务状态进入审核链路，但未找到对应提交记录。
 
 ---
 
@@ -493,4 +498,6 @@ Content-Type: application/json
 - `FORBIDDEN`: 无权限 (403)
 - `NOT_FOUND`: 资源不存在 (404)
 - `CONFLICT`: 操作冲突 (409)
+- `TASK_NOT_REVIEWABLE`: 任务尚未提交或当前状态不可审核 (409)
+- `SUBMISSION_REQUIRED`: 任务缺少可审核提交 (409)
 - `VALIDATION_ERROR`: 请求参数验证失败 (400)

@@ -88,38 +88,42 @@ export function ParentTaskDetail({ taskId }: { taskId: string }) {
   }
 
   const canEditOrDelete = task.status === "pending" || task.status === "needs_resubmit";
+  const canReview =
+    Boolean(task.submission) && ["submitted", "ai_checking", "parent_review"].includes(task.status);
   const images = task.submission?.images ?? [];
 
   return (
-    <div className="grid gap-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge>{task.subject}</Badge>
-            <Badge tone={statusTone[task.status]}>{statusLabel[task.status]}</Badge>
-            {canEditOrDelete ? (
-              <span className="ml-auto flex gap-2">
-                <ButtonLink href={`/parent/tasks/${task.id}/edit`} variant="secondary">
-                  编辑
-                </ButtonLink>
-                <Button variant="secondary" disabled={isDeleting} onClick={handleDelete}>
-                  {isDeleting ? "删除中..." : "删除"}
-                </Button>
-              </span>
-            ) : null}
-          </div>
-          <h1 className="mt-3 text-title-lg text-ink">{task.title}</h1>
-          <p className="mt-2 text-body-sm text-muted">{task.description}</p>
-        </div>
-        <ButtonLink href="/parent" variant="ghost">
+    <div className="grid gap-8">
+      <div className="flex flex-wrap items-center gap-2">
+        <ButtonLink href="/parent" variant="ghost" className="gap-1.5 px-3 text-muted hover:text-ink">
+          <span aria-hidden className="text-body">←</span>
           返回
         </ButtonLink>
+        {canEditOrDelete ? (
+          <span className="ml-1 flex gap-2">
+            <ButtonLink href={`/parent/tasks/${task.id}/edit`} variant="secondary" className="px-3">
+              编辑
+            </ButtonLink>
+            <Button variant="ghost" disabled={isDeleting} onClick={handleDelete} className="px-3 text-muted-soft hover:text-brand-coral">
+              {isDeleting ? "删除中..." : "删除"}
+            </Button>
+          </span>
+        ) : null}
+      </div>
+
+      <div className="rounded-xl bg-surface-soft p-6 md:p-8">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge>{task.subject}</Badge>
+          <Badge tone={statusTone[task.status]}>{statusLabel[task.status]}</Badge>
+        </div>
+        <h1 className="mt-4 text-display-md text-ink">{task.title}</h1>
+        <p className="mt-3 max-w-3xl text-body-md text-body">{task.description}</p>
       </div>
 
       {error ? <Card className="text-body-sm text-brand-coral">{error}</Card> : null}
 
-      <section className="grid gap-4 md:grid-cols-[1fr_1fr]">
-        <Card>
+      <section className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+        <Card variant="cream">
           <CardTitle>孩子提交</CardTitle>
           <dl className="mt-4 grid gap-3 text-body-sm">
             <div className="flex justify-between gap-4">
@@ -132,10 +136,10 @@ export function ParentTaskDetail({ taskId }: { taskId: string }) {
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-muted">截止时间</dt>
-              <dd className="font-medium text-ink">{task.dueTime ?? "今日"}</dd>
+              <dd className="font-medium text-ink">{task.dueTime ? task.dueTime : task.dueDate ?? "今日"}</dd>
             </div>
           </dl>
-          <div className="mt-4 grid grid-cols-3 gap-3">
+          <div className="mt-5 grid grid-cols-3 gap-3">
             {images.length > 0
               ? images.map((image) => (
                   <a key={image.id} href={image.imageUrl} target="_blank" rel="noreferrer">
@@ -156,38 +160,48 @@ export function ParentTaskDetail({ taskId }: { taskId: string }) {
 
         <Card>
           <CardTitle>家长审核</CardTitle>
-          <p className="mt-4 text-body-sm text-muted">
+          <p className="mt-4 rounded-lg bg-surface-soft p-4 text-body-sm text-muted">
             {task.aiSummary ?? "AI 检查尚未接入，当前由家长直接确认或要求补充。"}
           </p>
-          <form className="mt-5 grid gap-4">
-            <label>
-              审核备注
-              <textarea
-                value={comment}
-                onChange={(event) => setComment(event.target.value)}
-                placeholder="例如：完成得很好，或说明需要补充的原因"
-                rows={4}
-                maxLength={500}
-              />
-            </label>
-            <div className="flex flex-wrap gap-3">
-              <Button
-                type="button"
-                disabled={isSubmitting}
-                onClick={() => void handleReview("pass")}
-              >
-                确认通过
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={isSubmitting}
-                onClick={() => void handleReview("need_resubmit")}
-              >
-                要求补充
-              </Button>
-            </div>
-          </form>
+          {canReview ? (
+            <form className="mt-5 grid gap-4">
+              <label>
+                审核备注
+                <textarea
+                  value={comment}
+                  onChange={(event) => setComment(event.target.value)}
+                  placeholder="例如：完成得很好，或说明需要补充的原因"
+                  rows={4}
+                  maxLength={500}
+                />
+              </label>
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={() => void handleReview("pass")}
+                >
+                  确认通过
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={isSubmitting}
+                  onClick={() => void handleReview("need_resubmit")}
+                >
+                  要求补充
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <p className="mt-5 rounded-lg bg-surface-soft p-4 text-body-sm text-muted">
+              {task.status === "confirmed"
+                ? "该任务已确认通过。"
+                : task.status === "needs_resubmit"
+                  ? "已要求孩子补充提交，等待新的打卡内容。"
+                  : "孩子提交打卡后，可在这里确认通过或要求补充。"}
+            </p>
+          )}
         </Card>
       </section>
     </div>
