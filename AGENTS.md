@@ -19,8 +19,7 @@ Weekly report is generated.
 - MySQL
 - Qiniu Cloud Storage
 - Alibaba Bailian
-- Tailwind CSS
-- shadcn/ui
+- UI:animal-island-ui-style
 - GitHub Actions
 
 ## Directory Rules
@@ -29,8 +28,8 @@ Weekly report is generated.
 - docs/api.md contains the API documentation.
 - docs/prd.md contains the product requirements document.
 - src/frontend/ contains the frontend code.
+  - src/frontend/DESIGN.md contains the frontend design document.
 - src/backend/ contains the backend code.
-- src/frontend/DESIGN.md contains the frontend design document.
 - app/ only contains routes, layouts, pages and route handlers.
 - features/ contains business modules.
 - server/ contains server-only infrastructure code.

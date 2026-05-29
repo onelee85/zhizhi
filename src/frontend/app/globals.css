@@ -20,11 +20,11 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
-    radial-gradient(circle at 8% 12%, rgba(255, 176, 132, 0.22), transparent 28%),
-    radial-gradient(circle at 88% 8%, rgba(184, 164, 237, 0.2), transparent 30%),
-    linear-gradient(180deg, #fffaf0 0%, #faf5e8 100%);
-  color: #0a0a0a;
-  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    radial-gradient(circle at 12% 8%, rgba(130, 213, 187, 0.18), transparent 24%),
+    radial-gradient(circle at 88% 4%, rgba(247, 205, 103, 0.2), transparent 28%),
+    linear-gradient(180deg, #fff9e9 0%, #f6efd7 100%);
+  color: #725d42;
+  font-family: "Noto Sans SC", "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -36,10 +36,9 @@ body::before {
   z-index: -1;
   content: "";
   background-image:
-    linear-gradient(rgba(10, 10, 10, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(10, 10, 10, 0.035) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.45), transparent 72%);
+    radial-gradient(circle, rgba(114, 93, 66, 0.08) 1px, transparent 1.5px);
+  background-size: 22px 22px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.36), transparent 68%);
 }
 
 a {
@@ -51,14 +50,14 @@ input:not([type="checkbox"]):not([type="radio"]),
 select,
 textarea {
   width: 100%;
-  border-radius: 12px;
-  border: 1px solid #e5e5e5;
-  background: #fffaf0;
+  border-radius: 18px;
+  border: 2px solid rgba(114, 93, 66, 0.18);
+  background: #fffdf2;
   padding: 12px 16px;
   font-size: 16px;
-  color: #0a0a0a;
+  color: #725d42;
   line-height: 1.55;
-  box-shadow: inset 0 -1px 0 rgba(10, 10, 10, 0.03);
+  box-shadow: inset 0 -3px 0 rgba(114, 93, 66, 0.07);
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
@@ -66,13 +65,13 @@ input:not([type="checkbox"]):not([type="radio"]):focus,
 select:focus,
 textarea:focus {
   outline: none;
-  border-color: #0a0a0a;
+  border-color: #82d5bb;
   background: #fffdf8;
 }
 
 input[type="checkbox"],
 input[type="radio"] {
-  accent-color: #0a0a0a;
+  accent-color: #19c8b9;
 }
 
 label {
@@ -80,7 +79,7 @@ label {
   gap: 6px;
   font-size: 14px;
   font-weight: 500;
-  color: #3a3a3a;
+  color: #725d42;
 }
 
 textarea {
@@ -88,6 +87,104 @@ textarea {
 }
 
 ::selection {
-  background: #b8a4ed;
-  color: #0a0a0a;
+  background: #f7cd67;
+  color: #725d42;
+}
+
+.zhizhi-app-button {
+  min-height: 44px;
+  font-family: "Nunito", "Noto Sans SC", sans-serif;
+}
+
+.zhizhi-app-button-primary,
+.zhizhi-app-button-danger,
+.zhizhi-app-button-secondary,
+.zhizhi-app-button-ghost,
+.zhizhi-app-button-link {
+  letter-spacing: 0;
+}
+
+.zhizhi-app-button-secondary {
+  background: #fffdf2 !important;
+  color: #725d42 !important;
+  border-color: rgba(114, 93, 66, 0.22) !important;
+}
+
+.zhizhi-app-button-ghost {
+  background: transparent !important;
+  color: #725d42 !important;
+  box-shadow: none !important;
+}
+
+.zhizhi-app-button-link-shell {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  padding: 0 20px;
+  font-family: "Nunito", "Noto Sans SC", sans-serif;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.zhizhi-app-button-link-shell-large {
+  min-height: 50px;
+  padding-inline: 24px;
+  font-size: 16px;
+}
+
+.zhizhi-app-button-link-shell-small {
+  min-height: 36px;
+  padding-inline: 14px;
+  font-size: 13px;
+}
+
+.zhizhi-app-button-link-shell:hover {
+  transform: translateY(-1px);
+}
+
+a.zhizhi-app-button-primary {
+  background: #82d5bb;
+  color: #ffffff;
+  box-shadow: inset 0 -5px 0 rgba(68, 129, 111, 0.45), 0 4px 0 rgba(114, 93, 66, 0.16);
+}
+
+a.zhizhi-app-button-secondary {
+  background: #fffdf2;
+  color: #725d42;
+  border: 2px solid rgba(114, 93, 66, 0.18);
+  box-shadow: inset 0 -4px 0 rgba(114, 93, 66, 0.08);
+}
+
+a.zhizhi-app-button-ghost,
+a.zhizhi-app-button-link {
+  color: #725d42;
+  box-shadow: none;
+}
+
+.zhizhi-app-card {
+  border-radius: 28px !important;
+  padding: 20px !important;
+  box-shadow: 0 10px 0 rgba(114, 93, 66, 0.08);
+}
+
+@media (min-width: 768px) {
+  .zhizhi-app-card {
+    padding: 26px !important;
+  }
+}
+
+.zhizhi-app-card-cream {
+  background: #fffdf2 !important;
+}
+
+.zhizhi-app-modal {
+  font-family: "Noto Sans SC", "Nunito", sans-serif;
+}
+
+.zhizhi-app-tabs {
+  width: 100%;
 }

@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Button, ButtonLink } from "@/components/ui/button";
-import { Card, CardTitle } from "@/components/ui/card";
+import { AppButton, AppButtonLink } from "@/components/ui/button";
+import { AppCard, AppCardTitle } from "@/components/ui/card";
+import { AppSelect } from "@/components/ui/select";
 import { ApiError, deleteTask, getParentDashboard } from "@/features/api/client";
 import { getImageCount, statusLabel, statusTone } from "@/features/tasks/status";
 import type { ParentDashboard, StudyTask, TaskStatus } from "@/features/tasks/types";
@@ -85,43 +86,43 @@ export function ParentDashboardView() {
   const hasActiveFilter = Boolean(dateFilter) || statusFilter !== "all";
 
   return (
-    <div className="grid gap-8">
-      <div className="grid gap-5 rounded-xl bg-surface-soft p-6 md:grid-cols-[1fr_auto] md:items-end md:p-8">
+    <div className="mx-auto grid max-w-5xl gap-6">
+      <div className="grid gap-5 rounded-[32px] bg-[#fffdf2] p-5 shadow-[0_10px_0_rgba(114,93,66,0.08)] md:grid-cols-[1fr_auto] md:items-end md:p-6">
         <div>
           <p className="text-caption-uppercase text-muted">Parent dashboard</p>
-          <h1 className="mt-3 text-display-md text-ink">今日看板</h1>
-          <p className="mt-3 max-w-2xl text-body-md text-body">
-            从后端加载家庭任务进度，快速定位待确认、需补充和已完成的学习任务。
+          <h1 className="mt-3 text-display-sm tracking-normal text-ink">家长任务管理</h1>
+          <p className="mt-3 max-w-2xl text-body-sm text-body">
+            轻量查看家庭任务进度，快速定位待确认、需补充和已完成的任务。
           </p>
         </div>
-        <ButtonLink href="/parent/tasks/new">创建任务</ButtonLink>
+        <AppButtonLink href="/parent/tasks/new">创建任务</AppButtonLink>
       </div>
 
-      {error ? <Card className="text-body-sm text-brand-coral">{error}</Card> : null}
+      {error ? <AppCard className="text-body-sm text-brand-coral">{error}</AppCard> : null}
 
-      <section className="grid gap-4 md:grid-cols-4">
-        <Card variant="pink" className="text-on-dark">
-          <p className="text-caption text-on-dark/70">今日任务</p>
-          <p className="mt-2 text-display-sm text-on-dark">{isLoading ? "-" : total}</p>
-        </Card>
-        <Card variant="teal" className="text-on-dark">
-          <p className="text-caption text-on-dark/70">已确认</p>
-          <p className="mt-2 text-display-sm text-on-dark">{isLoading ? "-" : done}</p>
-        </Card>
-        <Card variant="lavender">
-          <p className="text-caption text-ink/70">待确认</p>
-          <p className="mt-2 text-display-sm text-ink">{isLoading ? "-" : waitingReview}</p>
-        </Card>
-        <Card variant="ochre">
-          <p className="text-caption text-ink/70">需补充</p>
-          <p className="mt-2 text-display-sm text-ink">{isLoading ? "-" : needsResubmit}</p>
-        </Card>
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <AppCard variant="ochre" className="text-[#725d42]">
+          <p className="text-caption text-[#725d42]/70">今日任务</p>
+          <p className="mt-2 text-display-sm tracking-normal text-[#725d42]">{isLoading ? "-" : total}</p>
+        </AppCard>
+        <AppCard variant="teal" className="text-white">
+          <p className="text-caption text-white/75">已确认</p>
+          <p className="mt-2 text-display-sm tracking-normal text-white">{isLoading ? "-" : done}</p>
+        </AppCard>
+        <AppCard variant="lavender" className="text-white">
+          <p className="text-caption text-white/75">待确认</p>
+          <p className="mt-2 text-display-sm tracking-normal text-white">{isLoading ? "-" : waitingReview}</p>
+        </AppCard>
+        <AppCard variant="peach" className="text-white">
+          <p className="text-caption text-white/75">需补充</p>
+          <p className="mt-2 text-display-sm tracking-normal text-white">{isLoading ? "-" : needsResubmit}</p>
+        </AppCard>
       </section>
 
-      <Card className="overflow-hidden p-0 md:p-0">
-        <div className="mb-4 grid gap-4 px-6 pt-6 md:grid-cols-[1fr_auto] md:items-start md:px-8 md:pt-8">
+      <AppCard className="overflow-visible p-0 md:p-0">
+        <div className="mb-4 grid gap-4 px-5 pt-5 md:grid-cols-[1fr_auto] md:items-start md:px-6 md:pt-6">
           <div>
-            <CardTitle>任务列表</CardTitle>
+            <AppCardTitle>任务列表</AppCardTitle>
             <p className="mt-2 text-body-sm text-muted">后端实时数据</p>
           </div>
           <div className="grid gap-3 md:min-w-[430px] md:grid-cols-[1fr_1fr_auto]">
@@ -136,24 +137,18 @@ export function ParentDashboardView() {
             </label>
             <label className="text-caption text-muted">
               状态
-              <select
+              <AppSelect
                 value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value as "all" | TaskStatus)}
-                className="mt-1"
-              >
-                {statusFilterOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(key) => setStatusFilter(key as "all" | TaskStatus)}
+                options={statusFilterOptions.map((option) => ({ key: option.value, label: option.label }))}
+              />
             </label>
             <div className="flex items-end gap-2">
               <span className="inline-flex h-11 items-center rounded-pill bg-surface-card px-3 text-caption text-muted-soft">
                 {filteredTasks.length}/{tasks.length} 项
               </span>
               {hasActiveFilter ? (
-                <Button
+                <AppButton
                   type="button"
                   variant="ghost"
                   className="h-11 px-3 text-caption text-muted-soft"
@@ -163,17 +158,17 @@ export function ParentDashboardView() {
                   }}
                 >
                   清空
-                </Button>
+                </AppButton>
               ) : null}
             </div>
           </div>
         </div>
-        <div className="divide-y divide-hairline">
+        <div className="grid gap-3 px-4 pb-4 md:px-5 md:pb-5">
           {filteredTasks.map((task) => (
             <Link
               key={task.id}
               href={`/parent/tasks/${task.id}`}
-              className="grid gap-4 px-6 py-5 transition-colors hover:bg-surface-soft/70 md:grid-cols-[1fr_auto] md:px-8"
+              className="grid gap-4 rounded-[24px] border-2 border-[#eadfc3] bg-[#fffdf8] p-4 transition hover:border-[#82d5bb] md:grid-cols-[1fr_auto]"
             >
               <div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -189,25 +184,29 @@ export function ParentDashboardView() {
                   截止 {task.dueTime ? task.dueTime : task.dueDate ?? "今日"}
                 </span>
                 {task.status === "pending" || task.status === "needs_resubmit" ? (
-                  <Button
+                  <AppButton
                     variant="ghost"
                     className="text-caption text-muted-soft hover:text-brand-coral"
                     onClick={(event) => void handleDelete(event, task.id)}
                   >
                     删除
-                  </Button>
+                  </AppButton>
                 ) : null}
               </div>
             </Link>
           ))}
           {!isLoading && tasks.length === 0 ? (
-            <p className="px-6 py-6 text-body-sm text-muted md:px-8">还没有创建任务。</p>
+            <p className="rounded-[22px] border-2 border-dashed border-[#eadfc3] bg-[#fffdf8] px-4 py-8 text-center text-body-sm text-muted">
+              还没有创建任务。
+            </p>
           ) : null}
           {!isLoading && tasks.length > 0 && filteredTasks.length === 0 ? (
-            <p className="px-6 py-6 text-body-sm text-muted md:px-8">没有符合筛选条件的任务。</p>
+            <p className="rounded-[22px] border-2 border-dashed border-[#eadfc3] bg-[#fffdf8] px-4 py-8 text-center text-body-sm text-muted">
+              没有符合筛选条件的任务。
+            </p>
           ) : null}
         </div>
-      </Card>
+      </AppCard>
     </div>
   );
 }

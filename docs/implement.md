@@ -105,6 +105,18 @@
 - 家长删除任务时会尝试同步删除该任务历史提交关联的本地图片文件；当前业务规则仍只允许删除未提交的 `pending` 任务。
 - 孩子端提交结果页补充展示任务标题、说明、科目类型、截止时间、提交时间、孩子备注、状态和已上传图片缩略图；图片直接使用数据库保存的 `/uploads/photos/<filename>` 路径展示。
 - 家长端任务列表新增前端筛选条件：按截止日期 `dueDate` 精确筛选，按任务状态筛选；列表计数显示当前筛选结果数量和总任务数量，支持一键清空筛选。
+- 基于 `animal-island-ui` 重构前端 UI，安装依赖 `animal-island-ui@0.9.6`，并在 Next.js 全局入口导入 `animal-island-ui/style`。
+- 新增/重构 `src/frontend/components/ui/` 基础封装：`AppButton`、`AppCard`、`AppModal`、`AppTabs`、`AppSelect`，业务页面通过本地封装使用组件库，避免散落第三方组件调用。
+- 孩子今日任务页改为“岛屿任务”风格，使用移动端优先 `max-w-lg` 布局、任务编号卡片、任务视图 tabs，并保留 `GET /tasks/today` 的现有筛选参数逻辑。
+- 孩子今日任务页的任务视图 tabs 调整为“今日 / 逾期 / 已完成”三种筛选；前端一次取回今日、逾期未完成和已完成任务后按当前视图过滤展示。
+- 本次孩子端筛选调整已通过 `source ~/.nvm/nvm.sh && nvm use v22 && pnpm typecheck`。
+- 孩子打卡页改为温暖圆润的任务提交表单，保留完成勾选、图片类型/大小校验、上传和提交逻辑。
+- 提交结果页新增 AI 检查结果弹窗，使用 `AppModal` 展示 `aiSummary` 或当前 AI 检查状态说明，不新增后端接口。
+- 家长任务管理页改为轻量管理台样式，保留看板接口、日期筛选、状态筛选、删除和任务详情跳转逻辑；状态筛选改用受控 `AppSelect`。
+- 更新 `src/frontend/DESIGN.md` 为 animal-island-ui 方向的前端设计说明。
+- 前端通过 `pnpm typecheck`；`pnpm build` 在沙箱内因 Turbopack 处理 `animal-island-ui` CSS 时被端口绑定限制阻止，提权后构建通过。
+- `pnpm lint` 当前仍因 Next 16 下 `next lint` 脚本被解析为项目目录 `lint` 而失败，需要后续改为 ESLint CLI。
+- 已启动前端开发服务并验证 `/child`、`/parent`、`/child/tasks/demo/result` 返回 200，访问地址为 `http://localhost:3000`。
 
 ## 当前状态
 
@@ -123,7 +135,7 @@
 - 登录：应用内用户体系，家长和孩子均使用用户名 + 密码。
 - 图片存储：服务端本地文件系统，当前保存于 `src/backend/storage/uploads/photos/`，数据库仅保存 `/uploads/photos/<filename>`。
 - AI 能力：Alibaba Bailian，多模态图片理解和文本生成。
-- UI：Tailwind CSS + shadcn/ui。
+- UI：Tailwind CSS + shadcn/ui + animal-island-ui。
 - CI：GitHub Actions。
 
 ## 实施边界

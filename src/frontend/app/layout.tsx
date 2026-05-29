@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import "animal-island-ui/style";
 import "./globals.css";
 import { AuthProvider } from "@/features/auth/auth-context";
 import { HeaderNav } from "@/features/auth/header-nav";

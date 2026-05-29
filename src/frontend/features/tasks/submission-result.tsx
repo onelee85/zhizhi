@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { ButtonLink } from "@/components/ui/button";
-import { Card, CardTitle } from "@/components/ui/card";
+import { AppButton, AppButtonLink } from "@/components/ui/button";
+import { AppCard, AppCardTitle } from "@/components/ui/card";
+import { AppModal } from "@/components/ui/modal";
 import { ApiError, getTask } from "@/features/api/client";
 import { getImageCount, statusLabel, statusTone } from "@/features/tasks/status";
 import type { StudyTask } from "@/features/tasks/types";
@@ -12,6 +13,7 @@ export function SubmissionResult({ taskId }: { taskId: string }) {
   const [task, setTask] = useState<StudyTask | null>(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -40,11 +42,11 @@ export function SubmissionResult({ taskId }: { taskId: string }) {
   }, [taskId]);
 
   if (isLoading) {
-    return <Card className="text-body-sm text-muted">正在加载提交结果...</Card>;
+    return <AppCard className="mx-auto max-w-lg text-body-sm text-muted">正在加载提交结果...</AppCard>;
   }
 
   if (!task) {
-    return <Card className="text-body-sm text-brand-coral">{error || "任务不存在"}</Card>;
+    return <AppCard className="mx-auto max-w-lg text-body-sm text-brand-coral">{error || "任务不存在"}</AppCard>;
   }
 
   const images = task.submission?.images ?? [];
@@ -57,21 +59,23 @@ export function SubmissionResult({ taskId }: { taskId: string }) {
       })
     : "暂无";
   const dueAt = task.dueTime ? `${task.dueDate ?? "今日"} ${task.dueTime}` : task.dueDate ?? "今日";
+  const aiResultText = task.aiSummary ?? (task.needAiCheck ? "AI 检查还在等待接入或处理中，家长仍可继续查看提交内容。" : "这个任务未开启 AI 检查。");
 
   return (
-    <div className="mx-auto grid max-w-4xl gap-6">
-      <div className="rounded-xl bg-brand-ochre p-6 md:p-8">
+    <div className="mx-auto grid max-w-lg gap-5">
+      <div className="rounded-[32px] bg-[#f7cd67] p-5 text-[#725d42] shadow-[0_10px_0_rgba(114,93,66,0.08)] md:p-6">
         <div className="flex flex-wrap items-center gap-2">
           <Badge>{task.subject}</Badge>
           <Badge>{task.taskType}</Badge>
           <Badge tone={statusTone[task.status]}>{statusLabel[task.status]}</Badge>
         </div>
-        <h1 className="mt-4 text-display-md text-ink">{task.title}</h1>
-        <p className="mt-3 max-w-3xl text-body-md text-ink/75">{task.description}</p>
+        <p className="mt-4 text-caption font-bold uppercase text-[#725d42]/70">Mission report</p>
+        <h1 className="mt-2 text-display-sm tracking-normal text-ink">{task.title}</h1>
+        <p className="mt-3 text-body-sm text-[#725d42]/80">{task.description}</p>
       </div>
 
-      <Card className="bg-canvas/95">
-        <CardTitle>提交结果</CardTitle>
+      <AppCard className="bg-canvas/95">
+        <AppCardTitle>提交结果</AppCardTitle>
         <dl className="mt-4 grid gap-3 text-body-sm">
           <div className="flex justify-between gap-4">
             <dt className="text-muted">当前状态</dt>
@@ -99,7 +103,7 @@ export function SubmissionResult({ taskId }: { taskId: string }) {
           </div>
           <div className="flex justify-between gap-4">
             <dt className="text-muted">AI 检查</dt>
-            <dd className="font-medium text-ink">{task.needAiCheck ? "等待后续接入" : "未开启"}</dd>
+            <dd className="font-medium text-ink">{task.needAiCheck ? (task.aiSummary ? "已生成" : "处理中") : "未开启"}</dd>
           </div>
           <div className="flex justify-between gap-4">
             <dt className="text-muted">家长确认</dt>
@@ -108,10 +112,15 @@ export function SubmissionResult({ taskId }: { taskId: string }) {
             </dd>
           </div>
         </dl>
-      </Card>
+        <div className="mt-5">
+          <AppButton type="button" variant="secondary" onClick={() => setIsAiModalOpen(true)}>
+            查看 AI 检查结果
+          </AppButton>
+        </div>
+      </AppCard>
 
-      <Card variant="cream">
-        <CardTitle>提交图片</CardTitle>
+      <AppCard variant="cream">
+        <AppCardTitle>提交图片</AppCardTitle>
         <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3">
           {images.length > 0
             ? images.map((image, index) => (
@@ -125,21 +134,21 @@ export function SubmissionResult({ taskId }: { taskId: string }) {
                   <img
                     src={image.imageThumbUrl ?? image.imageUrl}
                     alt={`提交图片 ${index + 1}`}
-                    className="aspect-[4/3] w-full rounded-lg border border-hairline object-cover transition group-hover:opacity-90"
+                    className="aspect-[4/3] w-full rounded-[18px] border-2 border-[#eadfc3] object-cover transition group-hover:opacity-90"
                   />
                 </a>
               ))
             : (
-                <div className="col-span-full flex aspect-[4/3] items-center justify-center rounded-lg border border-dashed border-hairline bg-canvas text-caption text-muted-soft">
+                <div className="col-span-full flex aspect-[4/3] items-center justify-center rounded-[22px] border-2 border-dashed border-[#eadfc3] bg-canvas text-caption text-muted-soft">
                   暂无图片
                 </div>
               )}
         </div>
-      </Card>
+      </AppCard>
 
-      <Card className="bg-canvas/95">
-        <CardTitle>下一步</CardTitle>
-        <p className="mt-4 rounded-lg bg-surface-soft p-4 text-body-sm text-muted">
+      <AppCard className="bg-canvas/95">
+        <AppCardTitle>下一步</AppCardTitle>
+        <p className="mt-4 rounded-[22px] bg-[#f7f0d8] p-4 text-body-sm text-muted">
           {task.status === "confirmed"
             ? "家长已确认通过。"
             : task.status === "needs_resubmit"
@@ -147,11 +156,29 @@ export function SubmissionResult({ taskId }: { taskId: string }) {
               : "已提交成功，等待家长查看和确认。"}
         </p>
         <div className="mt-5">
-          <ButtonLink href="/child" variant="secondary">
+          <AppButtonLink href="/child" variant="secondary">
             返回今日任务
-          </ButtonLink>
+          </AppButtonLink>
         </div>
-      </Card>
+      </AppCard>
+
+      <AppModal
+        open={isAiModalOpen}
+        title="AI 检查结果"
+        onClose={() => setIsAiModalOpen(false)}
+        footer={
+          <AppButton type="button" onClick={() => setIsAiModalOpen(false)}>
+            知道了
+          </AppButton>
+        }
+      >
+        <div className="grid gap-3 text-body-sm text-[#725d42]">
+          <p className="rounded-[20px] bg-[#fffdf2] p-4">{aiResultText}</p>
+          <p className="text-caption text-muted">
+            最终确认仍由家长处理，AI 结果仅作为辅助信息。
+          </p>
+        </div>
+      </AppModal>
     </div>
   );
 }

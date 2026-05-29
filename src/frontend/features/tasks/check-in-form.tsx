@@ -3,8 +3,8 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { Button, ButtonLink } from "@/components/ui/button";
-import { Card, CardTitle } from "@/components/ui/card";
+import { AppButton, AppButtonLink } from "@/components/ui/button";
+import { AppCard, AppCardTitle } from "@/components/ui/card";
 import { ApiError, getTask, submitTask, uploadPhoto } from "@/features/api/client";
 import { statusLabel, statusTone } from "@/features/tasks/status";
 import type { StudyTask } from "@/features/tasks/types";
@@ -106,28 +106,29 @@ export function CheckInForm({ taskId }: { taskId: string }) {
   }
 
   if (isLoading) {
-    return <Card className="text-body-sm text-muted">正在加载任务...</Card>;
+    return <AppCard className="mx-auto max-w-lg text-body-sm text-muted">正在加载任务...</AppCard>;
   }
 
   if (!task) {
-    return <Card className="text-body-sm text-brand-coral">{error || "任务不存在"}</Card>;
+    return <AppCard className="mx-auto max-w-lg text-body-sm text-brand-coral">{error || "任务不存在"}</AppCard>;
   }
 
   return (
-    <div className="mx-auto grid max-w-4xl gap-6">
-      <div className="rounded-xl bg-brand-mint p-6 md:p-8">
+    <div className="mx-auto grid max-w-lg gap-5">
+      <div className="rounded-[32px] bg-[#82d5bb] p-5 text-white shadow-[0_10px_0_rgba(114,93,66,0.08)] md:p-6">
         <div className="flex flex-wrap items-center gap-2">
           <Badge>{task.subject}</Badge>
           <Badge tone={statusTone[task.status]}>{statusLabel[task.status]}</Badge>
         </div>
-        <h1 className="mt-4 text-display-md text-ink">{task.title}</h1>
-        <p className="mt-3 max-w-3xl text-body-md text-ink/75">{task.description}</p>
+        <p className="mt-4 text-caption font-bold uppercase text-white/75">Mission check-in</p>
+        <h1 className="mt-2 text-display-sm tracking-normal text-white">{task.title}</h1>
+        <p className="mt-3 text-body-sm text-white/85">{task.description}</p>
       </div>
 
-      <Card>
+      <AppCard>
         <form className="grid gap-5" onSubmit={handleSubmit}>
-          <CardTitle>完成并打卡</CardTitle>
-          <label className="flex items-center gap-3 rounded-lg bg-surface-soft p-4">
+          <AppCardTitle>完成并打卡</AppCardTitle>
+          <label className="flex items-center gap-3 rounded-[22px] bg-[#f7f0d8] p-4">
             <input
               className="h-4 w-4"
               type="checkbox"
@@ -139,6 +140,7 @@ export function CheckInForm({ taskId }: { taskId: string }) {
           <label>
             上传图片
             <input
+              className="cursor-pointer"
               type="file"
               accept="image/jpeg,image/png,image/webp"
               multiple
@@ -151,7 +153,10 @@ export function CheckInForm({ taskId }: { taskId: string }) {
           {photos.length > 0 ? (
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
               {photos.map((photo) => (
-                <div key={`${photo.name}-${photo.lastModified}`} className="rounded-lg border border-hairline bg-surface-soft p-3">
+                <div
+                  key={`${photo.name}-${photo.lastModified}`}
+                  className="rounded-[20px] border-2 border-[#eadfc3] bg-[#fffdf8] p-3"
+                >
                   <p className="truncate text-body-sm font-medium text-ink">{photo.name}</p>
                   <p className="mt-1 text-caption text-muted-soft">{(photo.size / 1024 / 1024).toFixed(2)} MB</p>
                 </div>
@@ -170,15 +175,15 @@ export function CheckInForm({ taskId }: { taskId: string }) {
           </label>
           {error ? <p className="text-body-sm text-brand-coral">{error}</p> : null}
           <div className="flex flex-wrap gap-3">
-            <Button type="submit" disabled={isSubmitting}>
+            <AppButton type="submit" loading={isSubmitting} disabled={isSubmitting}>
               {isSubmitting ? "上传并提交中..." : "提交打卡"}
-            </Button>
-            <ButtonLink href={`/child/tasks/${task.id}/result`} variant="secondary">
+            </AppButton>
+            <AppButtonLink href={`/child/tasks/${task.id}/result`} variant="secondary">
               查看提交结果
-            </ButtonLink>
+            </AppButtonLink>
           </div>
         </form>
-      </Card>
+      </AppCard>
     </div>
   );
 }

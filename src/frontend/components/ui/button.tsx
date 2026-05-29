@@ -1,53 +1,80 @@
+"use client";
+
 import Link from "next/link";
+import { Button as AnimalButton } from "animal-island-ui";
+import type { ButtonProps as AnimalButtonProps, ButtonSize } from "animal-island-ui";
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-type ButtonProps = ComponentPropsWithoutRef<"button"> & {
-  variant?: "primary" | "secondary" | "ghost";
+type AppButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "link";
+
+export type AppButtonProps = Omit<AnimalButtonProps, "type" | "htmlType" | "size" | "danger"> & {
+  variant?: AppButtonVariant;
+  size?: ButtonSize;
+  type?: "submit" | "reset" | "button";
 };
 
-const variantClass = {
-  primary: "bg-ink text-on-primary shadow-[inset_0_-2px_0_rgba(255,255,255,0.14)] hover:bg-body-strong",
-  secondary: "border border-hairline bg-canvas text-ink shadow-[inset_0_-1px_0_rgba(10,10,10,0.04)] hover:bg-surface-soft",
-  ghost: "text-body hover:bg-surface-soft hover:text-ink"
+const variantClass: Record<AppButtonVariant, string> = {
+  primary: "zhizhi-app-button-primary",
+  secondary: "zhizhi-app-button-secondary",
+  ghost: "zhizhi-app-button-ghost",
+  danger: "zhizhi-app-button-danger",
+  link: "zhizhi-app-button-link"
 };
 
-export function Button({ className, variant = "primary", ...props }: ButtonProps) {
+const variantType: Record<AppButtonVariant, AnimalButtonProps["type"]> = {
+  primary: "primary",
+  secondary: "default",
+  ghost: "text",
+  danger: "primary",
+  link: "link"
+};
+
+export function AppButton({ className, variant = "primary", size = "middle", type = "button", ...props }: AppButtonProps) {
   return (
-    <button
-      className={cn(
-        "inline-flex h-11 items-center justify-center rounded-md px-5 text-button transition disabled:cursor-not-allowed disabled:opacity-40",
-        variantClass[variant],
-        className
-      )}
+    <AnimalButton
+      className={cn("zhizhi-app-button", variantClass[variant], className)}
+      danger={variant === "danger"}
+      htmlType={type}
+      size={size}
+      type={variantType[variant]}
       {...props}
     />
   );
 }
 
-type ButtonLinkProps = {
+export type AppButtonLinkProps = ComponentPropsWithoutRef<typeof Link> & {
   href: string;
   children: ReactNode;
   className?: string;
-  variant?: "primary" | "secondary" | "ghost";
+  variant?: AppButtonVariant;
+  size?: ButtonSize;
 };
 
-export function ButtonLink({
+export function AppButtonLink({
   href,
   children,
   className,
-  variant = "primary"
-}: ButtonLinkProps) {
+  variant = "primary",
+  size = "middle",
+  ...props
+}: AppButtonLinkProps) {
   return (
     <Link
       href={href}
       className={cn(
-        "inline-flex h-11 items-center justify-center rounded-md px-5 text-button transition",
+        "zhizhi-app-button-link-shell",
+        size === "large" && "zhizhi-app-button-link-shell-large",
+        size === "small" && "zhizhi-app-button-link-shell-small",
         variantClass[variant],
         className
       )}
+      {...props}
     >
       {children}
     </Link>
   );
 }
+
+export const Button = AppButton;
+export const ButtonLink = AppButtonLink;
