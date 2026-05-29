@@ -1,4 +1,5 @@
 import { AppError, assertFound } from "../../shared/errors.js";
+import { deleteLocalFile } from "../../server/uploads.js";
 import type { StudyTask, User } from "../../domain/types.js";
 import type { TaskRepository } from "./task.repository.js";
 import type { z } from "zod";
@@ -12,11 +13,14 @@ type ReviewTaskInput = z.infer<typeof reviewTaskSchema>;
 export class TaskService {
   constructor(private readonly repository: TaskRepository) {}
 
-  async listTodayTasks(user: User) {
+  async listTodayTasks(
+    user: User,
+    options: { includeOverdueIncomplete?: boolean; includeCompleted?: boolean } = {}
+  ) {
     const today = new Date().toISOString().slice(0, 10);
     const tasks =
       user.role === "child"
-        ? await this.repository.listTodayTasks(user.familyId, user.id, today)
+        ? await this.repository.listTodayTasks(user.familyId, user.id, today, options)
         : await this.repository.listFamilyTodayTasks(user.familyId, today);
 
     return Promise.all(tasks.map((task) => this.withSubmission(task)));
@@ -71,7 +75,9 @@ export class TaskService {
       throw new AppError(409, "TASK_NOT_DELETABLE", "Only pending tasks can be deleted");
     }
 
+    const imageUrls = await this.repository.listTaskImageUrls(taskId);
     await this.repository.deleteTask(taskId);
+    await Promise.all(imageUrls.map((imageUrl) => deleteLocalFile(imageUrl)));
   }
 
   async submitTask(child: User, taskId: string, input: SubmitTaskInput) {

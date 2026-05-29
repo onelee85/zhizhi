@@ -77,16 +77,38 @@ export class TaskRepository {
     return rows.length > 0;
   }
 
-  async listTodayTasks(familyId: string, childUserId: string, dueDate: string) {
+  async listTodayTasks(
+    familyId: string,
+    childUserId: string,
+    dueDate: string,
+    options: { includeOverdueIncomplete?: boolean; includeCompleted?: boolean } = {}
+  ) {
     const [rows] = await this.db.execute<TaskRow[]>(
       `select *
        from study_task
        where family_id = :familyId
          and child_user_id = :childUserId
-         and due_date = :dueDate
+         and (
+           due_date = :dueDate
+           or (
+             :includeOverdueIncomplete = true
+             and due_date < :dueDate
+             and status in ('pending', 'needs_resubmit')
+           )
+           or (
+             :includeCompleted = true
+             and status in ('submitted', 'ai_checking', 'parent_review', 'confirmed')
+           )
+         )
          and deleted_at is null
-       order by due_time is null, due_time, created_at`,
-      { familyId, childUserId, dueDate }
+       order by due_date = :dueDate desc, due_date desc, due_time is null, due_time, created_at`,
+      {
+        familyId,
+        childUserId,
+        dueDate,
+        includeOverdueIncomplete: options.includeOverdueIncomplete ?? false,
+        includeCompleted: options.includeCompleted ?? false
+      }
     );
 
     return rows.map(mapTask);
@@ -221,6 +243,18 @@ export class TaskRepository {
     );
 
     return result.affectedRows > 0;
+  }
+
+  async listTaskImageUrls(taskId: string) {
+    const [rows] = await this.db.execute<(RowDataPacket & { image_url: string })[]>(
+      `select si.image_url
+       from submission_image si
+       join task_submission ts on ts.id = si.submission_id
+       where ts.task_id = :taskId`,
+      { taskId }
+    );
+
+    return rows.map((row) => row.image_url);
   }
 
   async setTaskStatus(taskId: string, status: StudyTask["status"]) {

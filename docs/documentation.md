@@ -15,7 +15,7 @@
 - Next.js App Router
 - TypeScript
 - 数据库使用 MySQL。
-- Qiniu Cloud Storage
+- 本地文件系统图片存储
 - Alibaba Bailian
 - Tailwind CSS
 - shadcn/ui
@@ -57,20 +57,19 @@
 
 - `/`：首页和阶段说明。
 - `/login`：用户名密码登录页，调用 `POST /auth/login`。
-- `/parent`：家长今日看板，调用 `GET /parent/dashboard`，列表每项支持删除（`pending`/`needs_resubmit` 状态）。
+- `/parent`：家长今日看板，调用 `GET /parent/dashboard`，任务列表支持按截止日期和任务状态筛选，列表每项支持删除（`pending`/`needs_resubmit` 状态）。
 - `/parent/tasks/new`：创建任务表单，调用 `POST /tasks`。
 - `/parent/tasks/[taskId]`：家长任务详情和审核页，调用 `GET /tasks/:taskId` 和 `POST /tasks/:taskId/reviews`；仅在任务已有提交且处于 `submitted`、`ai_checking` 或 `parent_review` 状态时显示确认通过/要求补充，`pending`/`needs_resubmit` 状态显示编辑和删除按钮。
 - `/parent/tasks/[taskId]/edit`：编辑任务表单，调用 `GET /tasks/:taskId` 预填并 `PATCH /tasks/:taskId` 保存。
-- `/child`：孩子今日任务页，调用 `GET /tasks/today`。
+- `/child`：孩子今日任务页，调用 `GET /tasks/today`；支持通过 checkbox 追加请求 `includeOverdueIncomplete=true` 显示逾期且仍为 `pending`/`needs_resubmit` 的未完成任务，也支持 `includeCompleted=true` 显示孩子已提交或已确认的完成任务。
 - `/child/tasks/[taskId]/check-in`：孩子打卡页，调用 `GET /tasks/:taskId` 和 `POST /tasks/:taskId/submissions`。
-- `/child/tasks/[taskId]/result`：提交结果页，调用 `GET /tasks/:taskId`。
+- `/child/tasks/[taskId]/result`：提交结果页，调用 `GET /tasks/:taskId`，展示任务信息、提交状态、孩子备注和已上传图片。
 
 当前不包含：
 
-- Qiniu 真实图片上传。
 - Alibaba Bailian AI 检查。
 
-前端通过 `src/frontend/app/api/backend/[...path]/route.ts` 提供同源代理，默认转发到 `http://localhost:4000`，可通过 `NEXT_PUBLIC_API_BASE_URL` 覆盖。
+前端通过 `src/frontend/app/api/backend/[...path]/route.ts` 提供同源代理，默认转发到 `http://localhost:4000`，可通过 `NEXT_PUBLIC_API_BASE_URL` 覆盖。图片展示路径 `/uploads/photos/<filename>` 由 `src/frontend/app/uploads/photos/[filename]/route.ts` 代理到后端本地文件读取接口。
 
 当前后端尚无家庭孩子列表接口，创建任务页阶段 1 使用 Demo seed 中的 `child-1` 作为默认孩子。
 
@@ -98,10 +97,12 @@ http://localhost:4000
 | `GET` | `/health` | 健康检查 |
 | `GET` | `/docs` | Swagger UI |
 | `GET` | `/openapi.json` | OpenAPI JSON |
+| `POST` | `/uploads/photos` | 孩子上传本地打卡照片，`multipart/form-data` 字段为 `photo` |
+| `GET` | `/uploads/photos/:fileName` | 读取本地上传照片 |
 | `POST` | `/auth/login` | 用户名密码登录 |
 | `GET` | `/auth/me` | 当前用户 |
 | `GET` | `/parent/dashboard` | 家长看板（家庭全部任务） |
-| `GET` | `/tasks/today` | 今日任务 |
+| `GET` | `/tasks/today` | 今日任务；孩子端可传 `includeOverdueIncomplete=true` 追加逾期未完成任务，或传 `includeCompleted=true` 追加已完成任务 |
 | `POST` | `/tasks` | 家长创建任务 |
 | `GET` | `/tasks/:taskId` | 任务详情 |
 | `PATCH` | `/tasks/:taskId` | 家长编辑未完成任务 |
@@ -115,11 +116,11 @@ http://localhost:4000
 - 核心表 schema 和本地 Demo seed。
 - 用户名密码登录的 MySQL 用户读取和 scrypt 密码哈希校验。
 - 阶段 1 任务、提交、图片、审核接口的数据持久化。
+- 本地照片上传和读取，图片保存到 `src/backend/storage/uploads/photos/`，数据库只保存 `/uploads/photos/<filename>` 相对路径。
 - 远程 MySQL 接口验证已覆盖登录、今日任务、家长看板、创建任务、任务详情、孩子提交、家长审核和基础权限拦截。
 
 当前后端不包含：
 
-- Qiniu 真实图片上传。
 - Alibaba Bailian AI 检查。
 - 错题记录。
 - 周报生成。

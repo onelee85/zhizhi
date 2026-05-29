@@ -14,7 +14,7 @@ async function proxy(request: NextRequest, { params }: { params: Promise<{ path:
   const response = await fetch(target, {
     method: request.method,
     headers,
-    body: ["GET", "HEAD"].includes(request.method) ? undefined : await request.text(),
+    body: ["GET", "HEAD"].includes(request.method) ? undefined : await request.arrayBuffer(),
     cache: "no-store"
   });
 

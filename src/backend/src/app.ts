@@ -5,6 +5,7 @@ import { Router } from "./shared/router.js";
 import { readJson, sendHtml, sendJson } from "./shared/http.js";
 import { openApiSpec } from "./docs/openapi.js";
 import { swaggerUiHtml } from "./docs/swagger-ui.js";
+import { saveUploadedFile, sendLocalUploadedFile } from "./server/uploads.js";
 import { TaskRepository } from "./features/tasks/task.repository.js";
 import { TaskService } from "./features/tasks/task.service.js";
 import {
@@ -34,6 +35,10 @@ router.add("GET", "/docs", ({ response }) => {
   sendHtml(response, 200, swaggerUiHtml());
 });
 
+router.add("GET", "/uploads/photos/:fileName", async ({ response, params }) => {
+  await sendLocalUploadedFile(response, params.fileName);
+});
+
 router.add("POST", "/auth/login", async ({ request, response }) => {
   const body = loginSchema.parse(await readJson(request));
   sendJson(response, 200, await login(body.username, body.password));
@@ -46,15 +51,22 @@ router.add("GET", "/auth/me", async ({ request, response }) => {
   });
 });
 
+router.add("POST", "/uploads/photos", async ({ request, response }) => {
+  await requireRole(request.headers.authorization, "child");
+  sendJson(response, 201, await saveUploadedFile(request));
+});
+
 router.add("GET", "/parent/dashboard", async ({ request, response }) => {
   const parent = await requireRole(request.headers.authorization, "parent");
   sendJson(response, 200, await taskService.getParentDashboard(parent));
 });
 
-router.add("GET", "/tasks/today", async ({ request, response }) => {
+router.add("GET", "/tasks/today", async ({ request, response, query }) => {
   const user = await requireUser(request.headers.authorization);
+  const includeOverdueIncomplete = query.get("includeOverdueIncomplete") === "true";
+  const includeCompleted = query.get("includeCompleted") === "true";
   sendJson(response, 200, {
-    tasks: await taskService.listTodayTasks(user)
+    tasks: await taskService.listTodayTasks(user, { includeOverdueIncomplete, includeCompleted })
   });
 });
 

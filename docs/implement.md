@@ -48,7 +48,7 @@
 - 创建任务页接入 `POST /tasks`，孩子列表从家长看板接口读取，保存成功后进入任务详情。
 - 家长任务详情页接入 `GET /tasks/:taskId` 和 `POST /tasks/:taskId/reviews`，支持确认通过和要求补充。
 - 孩子今日任务页接入 `GET /tasks/today`，打卡页接入 `GET /tasks/:taskId` 和 `POST /tasks/:taskId/submissions`。
-- Qiniu 未接入前，孩子打卡页按当前后端接口使用每行一个图片 URL 的方式提交 `imageUrls`。
+- 孩子打卡页已改为本地照片上传：先调用 `POST /uploads/photos` 保存图片，再将返回的 `/uploads/photos/<filename>` 写入 `imageUrls` 提交。
 - 前端通过 `pnpm typecheck` 和 `pnpm build` 验证；`pnpm build` 在沙箱内因 Turbopack 绑定端口限制失败，提权后构建成功。
 - 联调发现当前后端 `GET /parent/dashboard` 实际返回 `summary + tasks`，已同步修正前端类型和 `docs/api.md`。
 - 当前后端尚无家庭孩子列表接口，创建任务页阶段 1 使用 Demo seed 中的 `child-1` 作为默认孩子。
@@ -86,6 +86,26 @@
 - 家长审核操作现在仅在任务已有提交且处于 `submitted`、`ai_checking` 或 `parent_review` 状态时展示。
 - 后端 `POST /tasks/:taskId/reviews` 增加可审核状态校验；未提交任务调用审核接口返回 `409 TASK_NOT_REVIEWABLE`，提交缺失返回 `409 SUBMISSION_REQUIRED`。
 
+## 2026-05-29
+
+- 孩子端任务列表新增“显示逾期未完成”checkbox。
+- `GET /tasks/today` 新增可选查询参数 `includeOverdueIncomplete=true`；孩子端传入后返回今日任务，以及截止日期早于今天且状态为 `pending` 或 `needs_resubmit` 的任务。
+- 孩子任务列表对逾期未完成任务显示“逾期未完成”标签，并展示完整截止日期和时间。
+- 更新 `docs/api.md` 和 `docs/documentation.md`，同步接口参数和孩子端页面行为。
+- 孩子端任务列表新增“显示已完成”checkbox。
+- `GET /tasks/today` 新增可选查询参数 `includeCompleted=true`；孩子端传入后返回今日任务，以及状态为 `submitted`、`ai_checking`、`parent_review` 或 `confirmed` 的已完成任务。
+- 孩子端已提交/已确认任务的入口改为“查看结果”，避免进入打卡页重复提交。
+- 照片上传从 URL 模拟/第三方存储预留改为服务端本地保存。
+- 后端新增 `src/backend/src/server/uploads.ts`，提供 `saveUploadedFile`、`generateFileName`、`validateImageFile`、`deleteLocalFile` 和本地图片读取能力。
+- 上传接口为 `POST /uploads/photos`，仅孩子账号可调用；请求使用 `multipart/form-data` 字段 `photo`，只允许 `jpg/jpeg/png/webp`，单张最大 5MB。
+- 本地图片保存到 `src/backend/storage/uploads/photos/`（以后端进程工作目录为准），文件名格式为 `timestamp_random.ext`，例如 `1718000000000_a8f3d2c4b5e6.jpg`。
+- 数据库 `submission_image.image_url` 和 `image_thumb_url` 只保存相对访问路径，例如 `/uploads/photos/1718000000000_a8f3d2c4b5e6.jpg`，不保存图片二进制。
+- 前端新增 `/uploads/photos/[filename]` route handler，将数据库中的相对路径代理到后端本地图片读取接口；图片展示继续直接使用数据库路径。
+- 同源后端代理改为使用 `arrayBuffer()` 转发非 GET/HEAD 请求体，支持 multipart 图片二进制。
+- 家长删除任务时会尝试同步删除该任务历史提交关联的本地图片文件；当前业务规则仍只允许删除未提交的 `pending` 任务。
+- 孩子端提交结果页补充展示任务标题、说明、科目类型、截止时间、提交时间、孩子备注、状态和已上传图片缩略图；图片直接使用数据库保存的 `/uploads/photos/<filename>` 路径展示。
+- 家长端任务列表新增前端筛选条件：按截止日期 `dueDate` 精确筛选，按任务状态筛选；列表计数显示当前筛选结果数量和总任务数量，支持一键清空筛选。
+
 ## 当前状态
 
 - 当前仓库已创建阶段 1 前端页面，并已接入本地后端 API。
@@ -101,7 +121,7 @@
 - 前端与后端框架：Next.js App Router + TypeScript。
 - 数据库：MySQL。
 - 登录：应用内用户体系，家长和孩子均使用用户名 + 密码。
-- 图片存储：Qiniu Cloud Storage。
+- 图片存储：服务端本地文件系统，当前保存于 `src/backend/storage/uploads/photos/`，数据库仅保存 `/uploads/photos/<filename>`。
 - AI 能力：Alibaba Bailian，多模态图片理解和文本生成。
 - UI：Tailwind CSS + shadcn/ui。
 - CI：GitHub Actions。
@@ -122,11 +142,10 @@
 
 ## 建议实施顺序
 
-1. 接入 Qiniu 图片上传，保证提交图片可被家长查看。
-2. 接入 Alibaba Bailian AI 检查，异步写入 AI 检查结果。
-3. 实现错题记录和按科目查看。
-4. 实现薄弱点统计和每周学习报告。
-5. 补齐服务层单测、API 集成测试和核心 E2E 测试。
+1. 接入 Alibaba Bailian AI 检查，异步写入 AI 检查结果。
+2. 实现错题记录和按科目查看。
+3. 实现薄弱点统计和每周学习报告。
+4. 补齐服务层单测、API 集成测试和核心 E2E 测试。
 
 ## 阶段 1 前端验证
 
@@ -249,6 +268,6 @@ pnpm build
 - 阶段 1 前端页面已接入后端 API，仍保留未使用的早期 mock 数据文件供参考。
 - 后端 MySQL schema 已创建，并已完成远程 MySQL 接口联调。
 - 后端会话 token 仍使用进程内存保存，服务重启后需要重新登录。
-- 图片上传仅接收 URL 形式的 `imageUrls`，未接入 Qiniu。
+- 图片上传已接入本地文件保存；生产部署需要为 `src/backend/storage/uploads/photos/` 配置持久化磁盘或共享卷。
 - AI、错题、周报代码均未实现。
 - GitHub Actions 未配置。

@@ -123,11 +123,25 @@ export const openApiSpec = {
             type: "array",
             minItems: 1,
             maxItems: 9,
-            items: { type: "string", format: "uri" }
+            items: {
+              type: "string",
+              pattern: "^/uploads/photos/\\d+_[a-f0-9]{12}\\.(jpg|jpeg|png|webp)$",
+              example: "/uploads/photos/1718000000000_a8f3d2c4b5e6.jpg"
+            }
           },
           childNote: { type: "string", maxLength: 500 }
         },
         required: ["completed", "imageUrls"]
+      },
+      UploadPhotoResponse: {
+        type: "object",
+        properties: {
+          url: { type: "string", example: "/uploads/photos/1718000000000_a8f3d2c4b5e6.jpg" },
+          fileName: { type: "string", example: "1718000000000_a8f3d2c4b5e6.jpg" },
+          size: { type: "integer", example: 1048576 },
+          contentType: { type: "string", example: "image/jpeg" }
+        },
+        required: ["url", "fileName", "size", "contentType"]
       },
       ReviewTaskRequest: {
         type: "object",
@@ -155,8 +169,8 @@ export const openApiSpec = {
               properties: {
                 id: { type: "string" },
                 submissionId: { type: "string" },
-                imageUrl: { type: "string", format: "uri" },
-                imageThumbUrl: { type: "string", format: "uri" },
+                imageUrl: { type: "string", example: "/uploads/photos/1718000000000_a8f3d2c4b5e6.jpg" },
+                imageThumbUrl: { type: "string", example: "/uploads/photos/1718000000000_a8f3d2c4b5e6.jpg" },
                 sortOrder: { type: "integer" },
                 uploadStatus: { type: "string", enum: ["uploaded"] },
                 createdAt: { type: "string", format: "date-time" }
@@ -176,6 +190,54 @@ export const openApiSpec = {
           "200": {
             description: "服务正常"
           }
+        }
+      }
+    },
+    "/uploads/photos": {
+      post: {
+        tags: ["Uploads"],
+        summary: "孩子上传本地打卡照片",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "multipart/form-data": {
+              schema: {
+                type: "object",
+                properties: {
+                  photo: {
+                    type: "string",
+                    format: "binary",
+                    description: "jpg、jpeg、png 或 webp，最大 5MB"
+                  }
+                },
+                required: ["photo"]
+              }
+            }
+          }
+        },
+        responses: {
+          "201": {
+            description: "上传成功",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/UploadPhotoResponse" }
+              }
+            }
+          },
+          "400": { description: "文件类型或请求格式不合法" },
+          "413": { description: "文件超过 5MB" }
+        }
+      }
+    },
+    "/uploads/photos/{fileName}": {
+      get: {
+        tags: ["Uploads"],
+        summary: "读取本地上传照片",
+        parameters: [{ name: "fileName", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          "200": { description: "图片文件" },
+          "404": { description: "图片不存在" }
         }
       }
     },
@@ -240,6 +302,22 @@ export const openApiSpec = {
         tags: ["Tasks"],
         summary: "今日任务列表",
         security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "includeOverdueIncomplete",
+            in: "query",
+            required: false,
+            schema: { type: "boolean", default: false },
+            description: "孩子端可传 true，同时返回逾期且仍需孩子处理的 pending/needs_resubmit 任务。"
+          },
+          {
+            name: "includeCompleted",
+            in: "query",
+            required: false,
+            schema: { type: "boolean", default: false },
+            description: "孩子端可传 true，同时返回孩子已提交或已确认的 submitted/ai_checking/parent_review/confirmed 任务。"
+          }
+        ],
         responses: {
           "200": { description: "今日任务列表" }
         }

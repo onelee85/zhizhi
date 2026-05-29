@@ -61,12 +61,13 @@ export function clearSession() {
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   const token = getStoredToken();
+  const isFormData = typeof FormData !== "undefined" && init.body instanceof FormData;
 
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  if (init.body && !headers.has("Content-Type")) {
+  if (init.body && !isFormData && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
 
@@ -113,8 +114,18 @@ export async function getParentDashboard() {
   return request<ParentDashboard>("/parent/dashboard");
 }
 
-export async function getTodayTasks() {
-  return request<{ tasks: StudyTask[] }>("/tasks/today");
+export async function getTodayTasks(
+  options: { includeOverdueIncomplete?: boolean; includeCompleted?: boolean } = {}
+) {
+  const params = new URLSearchParams();
+  if (options.includeOverdueIncomplete) {
+    params.set("includeOverdueIncomplete", "true");
+  }
+  if (options.includeCompleted) {
+    params.set("includeCompleted", "true");
+  }
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return request<{ tasks: StudyTask[] }>(`/tasks/today${query}`);
 }
 
 export async function getTask(taskId: string) {
@@ -147,6 +158,16 @@ export async function submitTask(
   return request<{ task: StudyTask }>(`/tasks/${encodeURIComponent(taskId)}/submissions`, {
     method: "POST",
     body: JSON.stringify(input)
+  });
+}
+
+export async function uploadPhoto(file: File) {
+  const formData = new FormData();
+  formData.set("photo", file);
+
+  return request<{ url: string; fileName: string; size: number; contentType: string }>("/uploads/photos", {
+    method: "POST",
+    body: formData
   });
 }
 

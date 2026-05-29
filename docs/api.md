@@ -153,11 +153,23 @@ Authorization: Bearer <token>
 
 ### GET /tasks/today - 获取今日任务列表
 
-获取当前用户今日的任务列表。
+获取当前用户今日的任务列表。孩子端可通过查询参数同时返回逾期未完成任务。
+
+**查询参数:**
+
+| 参数 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `includeOverdueIncomplete` | boolean | 否 | 仅孩子端使用；传 `true` 时返回今日任务，以及截止日期早于今天且状态为 `pending` 或 `needs_resubmit` 的任务。 |
+| `includeCompleted` | boolean | 否 | 仅孩子端使用；传 `true` 时返回今日任务，以及孩子已提交或已确认的 `submitted`、`ai_checking`、`parent_review`、`confirmed` 任务。 |
 
 **请求头:**
 ```
 Authorization: Bearer <token>
+```
+
+**示例:**
+```
+GET /tasks/today?includeOverdueIncomplete=true&includeCompleted=true
 ```
 
 **响应 (200):**
@@ -380,8 +392,8 @@ Content-Type: application/json
 {
   "completed": true,
   "imageUrls": [
-    "https://example.com/image1.jpg",
-    "https://example.com/image2.jpg"
+    "/uploads/photos/1718000000000_a8f3d2c4b5e6.jpg",
+    "/uploads/photos/1718000001000_7d9a1b2c3e4f.png"
   ],
   "childNote": "已完成，感觉很简单！"
 }
@@ -389,7 +401,7 @@ Content-Type: application/json
 
 **字段说明:**
 - `completed`: 必须为 true
-- `imageUrls`: 照片 URL 数组，1-9 张
+- `imageUrls`: 本地照片访问路径数组，1-9 张；路径来自 `POST /uploads/photos` 返回值，格式为 `/uploads/photos/<timestamp>_<random>.<ext>`
 - `childNote`: 孩子备注，可选，最多 500 字符
 
 **响应 (201):**
@@ -402,6 +414,39 @@ Content-Type: application/json
   }
 }
 ```
+
+### POST /uploads/photos - 上传本地打卡照片 (孩子)
+
+上传孩子打卡照片，服务端保存到本地文件系统，数据库不保存图片二进制。
+
+**请求头:**
+```
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+```
+
+**权限要求**: 需要孩子角色
+
+**请求体:**
+- `photo`: 图片文件字段。只允许 `jpg`、`jpeg`、`png`、`webp`，单张最大 5MB。
+
+**响应 (201):**
+```json
+{
+  "url": "/uploads/photos/1718000000000_a8f3d2c4b5e6.jpg",
+  "fileName": "1718000000000_a8f3d2c4b5e6.jpg",
+  "size": 1048576,
+  "contentType": "image/jpeg"
+}
+```
+
+上传成功后，前端将 `url` 放入 `POST /tasks/:taskId/submissions` 的 `imageUrls`，最终写入 `submission_image.image_url` 和 `submission_image.image_thumb_url`。
+
+### GET /uploads/photos/:fileName - 读取本地照片
+
+读取服务端本地保存的照片。前端页面直接使用数据库保存的 `/uploads/photos/<fileName>` 作为 `img src`。
+
+**响应 (200):** 图片二进制内容
 
 ### POST /tasks/:taskId/reviews - 审核任务 (家长)
 

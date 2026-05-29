@@ -5,15 +5,18 @@ import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
-import { ApiError, getTask, submitTask } from "@/features/api/client";
+import { ApiError, getTask, submitTask, uploadPhoto } from "@/features/api/client";
 import { statusLabel, statusTone } from "@/features/tasks/status";
 import type { StudyTask } from "@/features/tasks/types";
+
+const MAX_PHOTO_SIZE = 5 * 1024 * 1024;
+const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 export function CheckInForm({ taskId }: { taskId: string }) {
   const router = useRouter();
   const [task, setTask] = useState<StudyTask | null>(null);
   const [completed, setCompleted] = useState(false);
-  const [imageUrlsText, setImageUrlsText] = useState("");
+  const [photos, setPhotos] = useState<File[]>([]);
   const [childNote, setChildNote] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -49,26 +52,22 @@ export function CheckInForm({ taskId }: { taskId: string }) {
     event.preventDefault();
     setError("");
 
-    const imageUrls = imageUrlsText
-      .split(/\r?\n/)
-      .map((item) => item.trim())
-      .filter(Boolean);
-
     if (!completed) {
       setError("请先勾选已完成");
       return;
     }
 
-    if (imageUrls.length === 0) {
-      setError("请至少填写 1 个图片 URL");
+    if (photos.length === 0) {
+      setError("请至少上传 1 张图片");
       return;
     }
 
     setIsSubmitting(true);
     try {
+      const uploadedPhotos = await Promise.all(photos.map((photo) => uploadPhoto(photo)));
       await submitTask(taskId, {
         completed: true,
-        imageUrls,
+        imageUrls: uploadedPhotos.map((photo) => photo.url),
         childNote: childNote.trim() || undefined
       });
       router.push(`/child/tasks/${taskId}/result`);
@@ -77,6 +76,33 @@ export function CheckInForm({ taskId }: { taskId: string }) {
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  function handlePhotoChange(files: FileList | null) {
+    setError("");
+    const nextPhotos = Array.from(files ?? []);
+
+    if (nextPhotos.length > 9) {
+      setPhotos([]);
+      setError("最多上传 9 张图片");
+      return;
+    }
+
+    const invalidType = nextPhotos.find((file) => !ALLOWED_PHOTO_TYPES.includes(file.type));
+    if (invalidType) {
+      setPhotos([]);
+      setError("只支持 jpg、jpeg、png、webp 图片");
+      return;
+    }
+
+    const oversize = nextPhotos.find((file) => file.size > MAX_PHOTO_SIZE);
+    if (oversize) {
+      setPhotos([]);
+      setError("单张图片不能超过 5MB");
+      return;
+    }
+
+    setPhotos(nextPhotos);
   }
 
   if (isLoading) {
@@ -111,14 +137,27 @@ export function CheckInForm({ taskId }: { taskId: string }) {
             我已完成
           </label>
           <label>
-            图片 URL
-            <textarea
-              value={imageUrlsText}
-              onChange={(event) => setImageUrlsText(event.target.value)}
-              placeholder="每行一个图片 URL，Qiniu 接入前用于联调提交接口"
-              rows={4}
+            上传图片
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              onChange={(event) => handlePhotoChange(event.target.files)}
             />
+            <span className="mt-2 block text-caption text-muted-soft">
+              支持 jpg、jpeg、png、webp，单张不超过 5MB，最多 9 张
+            </span>
           </label>
+          {photos.length > 0 ? (
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+              {photos.map((photo) => (
+                <div key={`${photo.name}-${photo.lastModified}`} className="rounded-lg border border-hairline bg-surface-soft p-3">
+                  <p className="truncate text-body-sm font-medium text-ink">{photo.name}</p>
+                  <p className="mt-1 text-caption text-muted-soft">{(photo.size / 1024 / 1024).toFixed(2)} MB</p>
+                </div>
+              ))}
+            </div>
+          ) : null}
           <label>
             孩子备注
             <textarea
@@ -132,7 +171,7 @@ export function CheckInForm({ taskId }: { taskId: string }) {
           {error ? <p className="text-body-sm text-brand-coral">{error}</p> : null}
           <div className="flex flex-wrap gap-3">
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "提交中..." : "提交打卡"}
+              {isSubmitting ? "上传并提交中..." : "提交打卡"}
             </Button>
             <ButtonLink href={`/child/tasks/${task.id}/result`} variant="secondary">
               查看提交结果
