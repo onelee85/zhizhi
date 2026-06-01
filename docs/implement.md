@@ -118,6 +118,16 @@
 - `pnpm lint` 当前仍因 Next 16 下 `next lint` 脚本被解析为项目目录 `lint` 而失败，需要后续改为 ESLint CLI。
 - 已启动前端开发服务并验证 `/child`、`/parent`、`/child/tasks/demo/result` 返回 200，访问地址为 `http://localhost:3000`。
 
+## 2026-06-01
+
+- 优化前端删除确认弹窗，移除家长看板和家长任务详情中的 `window.confirm`。
+- 新增通用 `AppConfirmModal`，基于 `AppModal` 和 `animal-island-ui` Modal 封装确认类弹窗，支持标题、描述、详情、确认/取消文案、loading 状态和危险操作样式。
+- 家长看板任务列表删除按钮改为打开 `AppConfirmModal`，弹窗展示待删除任务标题，确认后调用现有 `DELETE /tasks/:taskId` 并从列表移除。
+- 家长任务详情页删除按钮改为打开 `AppConfirmModal`，确认删除成功后继续跳转回 `/parent`。
+- 全局 modal 样式补充 animal-island 风格的奶油底、柔和阴影、危险操作提示标记、响应式按钮布局。
+- 本次仅调整前端交互和通用弹窗样式，后端接口无变化，`docs/api.md` 无需更新。
+- 前端通过 `pnpm typecheck`；`pnpm build` 在沙箱内仍因 Turbopack 绑定端口限制失败，提权后构建通过。
+
 ## 当前状态
 
 - 当前仓库已创建阶段 1 前端页面，并已接入本地后端 API。

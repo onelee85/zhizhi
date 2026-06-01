@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { AppButton, AppButtonLink } from "@/components/ui/button";
 import { AppCard, AppCardTitle } from "@/components/ui/card";
+import { AppConfirmModal } from "@/components/ui/modal";
 import { AppSelect } from "@/components/ui/select";
 import { ApiError, deleteTask, getParentDashboard } from "@/features/api/client";
 import { getImageCount, statusLabel, statusTone } from "@/features/tasks/status";
@@ -27,6 +28,8 @@ export function ParentDashboardView() {
   const [statusFilter, setStatusFilter] = useState<"all" | TaskStatus>("all");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState<StudyTask | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -56,19 +59,29 @@ export function ParentDashboardView() {
     };
   }, []);
 
-  async function handleDelete(event: React.MouseEvent, taskId: string) {
+  function openDeleteModal(event: React.MouseEvent, task: StudyTask) {
     event.preventDefault();
     event.stopPropagation();
+    setError("");
+    setDeleteTarget(task);
+  }
 
-    if (!window.confirm("确定要删除这个任务吗？")) {
+  async function handleDelete() {
+    if (!deleteTarget) {
       return;
     }
 
+    setError("");
+    setIsDeleting(true);
+
     try {
-      await deleteTask(taskId);
-      setTasks((prev) => prev.filter((t) => t.id !== taskId));
+      await deleteTask(deleteTarget.id);
+      setTasks((prev) => prev.filter((t) => t.id !== deleteTarget.id));
+      setDeleteTarget(null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "删除任务失败");
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -187,7 +200,7 @@ export function ParentDashboardView() {
                   <AppButton
                     variant="ghost"
                     className="text-caption text-muted-soft hover:text-brand-coral"
-                    onClick={(event) => void handleDelete(event, task.id)}
+                    onClick={(event) => openDeleteModal(event, task)}
                   >
                     删除
                   </AppButton>
@@ -207,6 +220,17 @@ export function ParentDashboardView() {
           ) : null}
         </div>
       </AppCard>
+      <AppConfirmModal
+        open={Boolean(deleteTarget)}
+        title="删除任务"
+        description="确定要删除这个任务吗？删除后孩子端将不再看到它。"
+        detail={deleteTarget ? `任务：${deleteTarget.title}` : undefined}
+        confirmText="删除"
+        loading={isDeleting}
+        tone="danger"
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => void handleDelete()}
+      />
     </div>
   );
 }

@@ -24,6 +24,7 @@ Project wrappers:
 - `AppButton` / `AppButtonLink`: wraps `animal-island-ui` button styles and maps app variants to valid package props.
 - `AppCard` / `AppCardTitle`: wraps `animal-island-ui` cards and restricts colors to official `CardColor` values.
 - `AppModal`: wraps `animal-island-ui` modal; `open` is always required and `typewriter` defaults to `false` for dynamic app content.
+- `AppConfirmModal`: wraps `AppModal` for destructive or irreversible confirmation flows. Use it instead of `window.confirm`; pass business copy, optional detail, loading state, and `tone="danger"` for deletion.
 - `AppTabs`: wraps `animal-island-ui` tabs.
 - `AppSelect`: wraps controlled `animal-island-ui` select.
 
@@ -105,6 +106,7 @@ Avoid adding many new colors. Keep child pages warm and mission-like; keep paren
 - Use summary cards for totals.
 - Use controlled `AppSelect` for status filtering.
 - Use native date input for date filtering.
+- Use `AppConfirmModal` for deleting tasks from the list; keep the task title visible in the modal detail.
 - Avoid playful copy that would slow down parent review.
 
 ## Constraints

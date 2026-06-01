@@ -185,6 +185,104 @@ a.zhizhi-app-button-link {
   font-family: "Noto Sans SC", "Nunito", sans-serif;
 }
 
+.zhizhi-app-modal [class*="animal-modalClipped"] {
+  background:
+    radial-gradient(circle at 18% 14%, rgba(247, 205, 103, 0.26), transparent 30%),
+    linear-gradient(180deg, #fffdf2 0%, #f7f3df 100%) !important;
+  box-shadow:
+    inset 0 0 0 2px rgba(114, 93, 66, 0.1),
+    0 18px 0 rgba(114, 93, 66, 0.12);
+}
+
+.zhizhi-app-modal [class*="animal-title"] {
+  color: #725d42 !important;
+  font-family: "Nunito", "Noto Sans SC", sans-serif;
+  font-size: 24px !important;
+  letter-spacing: 0;
+}
+
+.zhizhi-app-modal [class*="animal-body"] {
+  width: 100%;
+  color: #725d42 !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  line-height: 1.7 !important;
+}
+
+.zhizhi-app-modal [class*="animal-footer"] {
+  width: 100%;
+}
+
+.zhizhi-confirm-modal [class*="animal-modalClipped"] {
+  padding: 38px 36px 30px !important;
+}
+
+.zhizhi-confirm-modal [class*="animal-header"] {
+  padding-bottom: 12px !important;
+}
+
+.zhizhi-confirm-modal-content {
+  display: grid;
+  gap: 16px;
+  width: 100%;
+}
+
+.zhizhi-confirm-modal-mark {
+  display: inline-flex;
+  width: 48px;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(224, 90, 90, 0.38);
+  border-radius: 50%;
+  background: #fff1eb;
+  color: #e05a5a;
+  font-family: "Nunito", "Noto Sans SC", sans-serif;
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: inset 0 -4px 0 rgba(224, 90, 90, 0.12);
+}
+
+.zhizhi-confirm-modal-copy {
+  display: grid;
+  gap: 10px;
+}
+
+.zhizhi-confirm-modal-copy p {
+  margin: 0;
+  color: #725d42;
+}
+
+.zhizhi-confirm-modal-detail {
+  border-radius: 18px;
+  border: 2px dashed rgba(114, 93, 66, 0.18);
+  background: rgba(255, 253, 248, 0.72);
+  padding: 12px 14px;
+  color: rgba(114, 93, 66, 0.72);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.zhizhi-confirm-modal-actions {
+  display: flex;
+  width: 100%;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+@media (max-width: 480px) {
+  .zhizhi-confirm-modal [class*="animal-modalClipped"] {
+    padding: 34px 24px 26px !important;
+  }
+
+  .zhizhi-confirm-modal-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}
+
 .zhizhi-app-tabs {
   width: 100%;
 }

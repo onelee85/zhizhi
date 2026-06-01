@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
+import { AppConfirmModal } from "@/components/ui/modal";
 import { ApiError, deleteTask, getTask, reviewTask } from "@/features/api/client";
 import { getImageCount, statusLabel, statusTone } from "@/features/tasks/status";
 import type { StudyTask } from "@/features/tasks/types";
@@ -17,6 +18,7 @@ export function ParentTaskDetail({ taskId }: { taskId: string }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -63,10 +65,6 @@ export function ParentTaskDetail({ taskId }: { taskId: string }) {
   }
 
   async function handleDelete() {
-    if (!window.confirm("确定要删除这个任务吗？")) {
-      return;
-    }
-
     setError("");
     setIsDeleting(true);
 
@@ -104,7 +102,12 @@ export function ParentTaskDetail({ taskId }: { taskId: string }) {
             <ButtonLink href={`/parent/tasks/${task.id}/edit`} variant="secondary" className="px-3">
               编辑
             </ButtonLink>
-            <Button variant="ghost" disabled={isDeleting} onClick={handleDelete} className="px-3 text-muted-soft hover:text-brand-coral">
+            <Button
+              variant="ghost"
+              disabled={isDeleting}
+              onClick={() => setIsDeleteModalOpen(true)}
+              className="px-3 text-muted-soft hover:text-brand-coral"
+            >
               {isDeleting ? "删除中..." : "删除"}
             </Button>
           </span>
@@ -204,6 +207,17 @@ export function ParentTaskDetail({ taskId }: { taskId: string }) {
           )}
         </Card>
       </section>
+      <AppConfirmModal
+        open={isDeleteModalOpen}
+        title="删除任务"
+        description="确定要删除这个任务吗？删除后孩子端将不再看到它。"
+        detail={`任务：${task.title}`}
+        confirmText="删除"
+        loading={isDeleting}
+        tone="danger"
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={() => void handleDelete()}
+      />
     </div>
   );
 }

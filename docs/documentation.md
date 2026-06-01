@@ -52,6 +52,8 @@
 
 当前前端 UI 已按 `src/frontend/DESIGN.md` 的视觉方向统一为 `animal-island-ui` 的温暖、圆润、轻游戏化风格。全局入口导入 `animal-island-ui/style`，业务页面优先通过 `src/frontend/components/ui/` 下的 `AppButton`、`AppCard`、`AppModal`、`AppTabs`、`AppSelect` 等本地封装使用组件库。
 
+通用弹窗统一通过 `AppModal` 和 `AppConfirmModal` 封装。删除任务等确认类操作使用 `AppConfirmModal`，不再使用浏览器原生 `window.confirm`，以保持 animal-island 风格、加载态和移动端布局一致。
+
 孩子端优先呈现“岛屿任务”体验：今日任务页使用任务视图 tabs 和任务编号卡片，打卡页保持单列表单流程，提交结果页通过弹窗展示 AI 检查状态或摘要。家长端保持轻量管理台风格：摘要卡、日期筛选、受控状态选择器和任务列表保持清晰可扫。
 
 前端专用说明文档位于 `src/frontend/README.md`，包含项目架构、依赖版本、启动、打包、部署和页面验证方式。
@@ -60,9 +62,9 @@
 
 - `/`：首页和阶段说明。
 - `/login`：用户名密码登录页，调用 `POST /auth/login`。
-- `/parent`：家长任务管理页，调用 `GET /parent/dashboard`，任务列表支持按截止日期和任务状态筛选，列表每项支持删除（`pending`/`needs_resubmit` 状态）。
+- `/parent`：家长任务管理页，调用 `GET /parent/dashboard`，任务列表支持按截止日期和任务状态筛选，列表每项支持通过统一确认弹窗删除（`pending`/`needs_resubmit` 状态）。
 - `/parent/tasks/new`：创建任务表单，调用 `POST /tasks`。
-- `/parent/tasks/[taskId]`：家长任务详情和审核页，调用 `GET /tasks/:taskId` 和 `POST /tasks/:taskId/reviews`；仅在任务已有提交且处于 `submitted`、`ai_checking` 或 `parent_review` 状态时显示确认通过/要求补充，`pending`/`needs_resubmit` 状态显示编辑和删除按钮。
+- `/parent/tasks/[taskId]`：家长任务详情和审核页，调用 `GET /tasks/:taskId` 和 `POST /tasks/:taskId/reviews`；仅在任务已有提交且处于 `submitted`、`ai_checking` 或 `parent_review` 状态时显示确认通过/要求补充，`pending`/`needs_resubmit` 状态显示编辑和删除按钮，删除前使用统一确认弹窗。
 - `/parent/tasks/[taskId]/edit`：编辑任务表单，调用 `GET /tasks/:taskId` 预填并 `PATCH /tasks/:taskId` 保存。
 - `/child`：孩子今日任务页，调用 `GET /tasks/today`；支持通过 tabs 切换今日、逾期和已完成三种筛选视图，复用 `includeOverdueIncomplete=true` 与 `includeCompleted=true` 请求参数取回完整筛选数据。
 - `/child/tasks/[taskId]/check-in`：孩子打卡页，调用 `GET /tasks/:taskId` 和 `POST /tasks/:taskId/submissions`。
