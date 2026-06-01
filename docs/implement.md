@@ -168,6 +168,14 @@
 - 前端孩子打卡页 `CheckInForm` 在 `needPhoto=false` 时不再展示图片上传控件，改为提示“这个任务不需要上传图片”，提交逻辑仅在 `needPhoto=true` 时校验 `photos.length === 0`。
 - 前端 API 客户端 `submitTask` 的 `imageUrls` 类型改为 `string[] | undefined`。
 - 同步更新 `docs/api.md` 中 `/tasks/:taskId/submissions` 的字段说明与错误响应，更新 OpenAPI 规范。
+- 美化页面顶部菜单 UI 和布局，并将“家长端 / 孩子端”文案统一改为“任务清单”。
+- `HeaderNav` 改为带图标的圆角导航项胶囊（`icon-map` 任务清单 / `icon-shopping` 心愿单），激活态使用 `brand-mint` 高亮和内嵌阴影；用户身份区改为头像 + 昵称 + 角色副标题胶囊；退出登录按钮悬停态变为珊瑚色提示。
+- 顶部 logo 升级为渐变方形徽标并带绿色状态点，brand 名称下方补充“家庭学习打卡”副标题，header 底部加一条 mint 色渐变高光分隔线。
+- 未登录态顶部菜单将“家长端 / 孩子端”合并为单一“任务清单”入口指向 `/login`，登录入口保留 `bg-ink` 实心按钮。
+- 本次仅调整顶部菜单 UI 和文案，后端接口无变化，`docs/api.md` 无需更新。
+- 前端通过 `pnpm typecheck`；`pnpm build` 一次构建成功。
+- 修复顶部菜单激活态匹配 bug：原 `match` 用 `path.startsWith("/child/")` 同时匹配 `/child/wishes`，导致进入心愿单页时“任务清单”仍被高亮。
+- 改为"任务清单"匹配 `dashboardHref` 精确路径或子路径但排除 `wishlistHref` 子树；"心愿单"匹配 `wishlistHref` 精确路径或子路径。
 
 ## 当前状态
 
