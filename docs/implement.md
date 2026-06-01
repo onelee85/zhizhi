@@ -316,6 +316,23 @@ pnpm build
 - `POST /tasks/:taskId/submissions`
 - `POST /tasks/:taskId/reviews`
 
+## 2026-06-01
+
+- 使用 Playwright 连接 `http://localhost:3000/login` 完成前端登录功能验证。
+- 已验证家长账号 `parent_demo` / `password123` 登录成功后跳转 `/parent`，浏览器 `localStorage` 写入 parent 用户信息和 auth token。
+- 已验证孩子账号 `child_demo` / `password123` 登录成功后跳转 `/child`，浏览器 `localStorage` 写入 child 用户信息和 auth token。
+- 已验证错误密码请求返回 `401`，页面保持在 `/login` 并展示后端错误信息 `Invalid username or password`。
+- 本轮未修改前后端业务代码，后端接口无变化。
+- 新增 Playwright Test E2E 用例 `tests/e2e/task/task-flow.spec.ts`，覆盖家长创建任务、孩子上传照片打卡、家长审核发放积分、孩子提交心愿、家长设置积分、孩子申请兑换和家长确认兑换。
+- E2E 用例将登录、创建任务、上传照片、审核任务、心愿审批和兑换确认封装为 Page Object，选择器优先使用 `getByRole`、`getByLabel`、`getByText`，未使用 CSS class 选择器。
+- 用例通过认证后的同源后端 API 校验任务状态、积分变化和心愿兑换状态，适合后续接入 CI 后作为回归测试。
+- 在仓库根目录新增 `package.json`、`pnpm-lock.yaml` 和 `playwright.config.ts`，安装 `@playwright/test@1.58.0`，新增 `test:e2e` 脚本。
+- 修复家长愿望管理页确认兑换后的前端运行时错误：`POST /wishes/:wishId/redeem-confirmations` 返回字段为 `ledger`，前端不再读取不存在的 `pointLedger`。
+- 已通过 `src/frontend` 的 `pnpm typecheck`。
+- 已执行 `PLAYWRIGHT_CHROMIUM_CHANNEL=chrome pnpm exec playwright test tests/e2e/task/task-flow.spec.ts --project=chromium`，结果 `1 passed`。
+- `.gitignore` 新增 Playwright 本地报告产物 `test-results/` 和 `playwright-report/`。
+- `.gitignore` 新增本地上传照片目录 `src/backend/storage/uploads/photos/`，避免测试和开发上传文件进入版本控制。
+
 ## 核心模块清单
 
 - 认证模块：用户名密码登录、退出、当前用户、角色判断。

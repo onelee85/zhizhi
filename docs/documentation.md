@@ -362,6 +362,31 @@ http://localhost:3000
 pnpm build
 ```
 
+Playwright 登录验证：
+
+- 运行目标：`http://localhost:3000/login`
+- 家长账号：`parent_demo` / `password123`，预期跳转 `/parent`。
+- 孩子账号：`child_demo` / `password123`，预期跳转 `/child`。
+- 错误密码：预期 `POST /api/backend/auth/login` 返回 `401`，页面停留 `/login` 并展示 `Invalid username or password`。
+- 2026-06-01 已使用 Playwright + Chrome headless 完成上述三项验证。
+
+Playwright E2E 回归用例：
+
+- 用例文件：`tests/e2e/task/task-flow.spec.ts`
+- 覆盖业务：家长创建任务 -> 孩子上传照片打卡 -> 家长审核通过并发放积分 -> 孩子提交心愿 -> 家长设置兑换积分 -> 孩子申请兑换 -> 家长确认兑换。
+- 运行前需要前端 `http://localhost:3000` 和后端 `http://localhost:4000` 已启动；根目录已安装 `@playwright/test`。
+- 可通过环境变量 `PLAYWRIGHT_BASE_URL` 覆盖前端地址，默认使用 `http://localhost:3000`。
+- 本机可使用系统 Chrome channel 运行：
+
+```bash
+cd /Users/lijiao/Documents/AI/zhizhi
+source ~/.nvm/nvm.sh
+nvm use v22
+PLAYWRIGHT_CHROMIUM_CHANNEL=chrome pnpm exec playwright test tests/e2e/task/task-flow.spec.ts --project=chromium
+```
+
+- 2026-06-01 已执行上述命令，结果 `1 passed`。
+
 ## 后端运行与接口验证
 
 后端运行目录：

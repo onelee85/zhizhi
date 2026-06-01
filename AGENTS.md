@@ -60,9 +60,12 @@ Weekly report is generated.
 - Unit tests for service layer.
 - Integration tests for API routes.
 - E2E tests for core check-in flow.
+- Use Playwright Test with TypeScript.
+- Put all E2E tests under tests/e2e.
+- Use Page Object for complex flows.
 
 
-## 每轮完成后必须更新
+## Must Update After Each Round
 - `docs/implement.md`
 - `docs/documentation.md`
--  如果后端接口有变化更新 `docs/api.md`
+- Update `docs/api.md` if backend APIs change.

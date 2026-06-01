@@ -118,13 +118,13 @@ export function ParentWishlist() {
     try {
       const result = await confirmWishRedeem(confirmTarget.id);
       replaceWish(result.wish);
-      setLedger((prev) => [result.pointLedger, ...prev]);
+      setLedger((prev) => [result.ledger, ...prev]);
       setAccount((prev) =>
         prev
           ? {
               ...prev,
-              balance: result.pointLedger.balanceAfter,
-              totalSpent: prev.totalSpent + Math.abs(result.pointLedger.changeAmount)
+              balance: result.ledger.balanceAfter,
+              totalSpent: prev.totalSpent + Math.abs(result.ledger.changeAmount)
             }
           : prev
       );

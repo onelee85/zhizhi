@@ -13,6 +13,13 @@ dist/
 # logs
 *.log
 
+# Playwright
+test-results/
+playwright-report/
+
+# local uploads
+src/backend/storage/uploads/photos/
+
 # env
 .env
 .env.local

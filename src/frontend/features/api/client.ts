@@ -284,7 +284,7 @@ export async function requestWishRedeem(wishId: string) {
 }
 
 export async function confirmWishRedeem(wishId: string) {
-  return request<{ wish: Wish; pointLedger: PointLedger }>(
+  return request<{ wish: Wish; ledger: PointLedger }>(
     `/wishes/${encodeURIComponent(wishId)}/redeem-confirmations`,
     {
       method: "POST"
