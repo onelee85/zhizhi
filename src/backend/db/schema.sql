@@ -54,6 +54,7 @@ create table if not exists study_task (
   due_time char(5) null,
   need_photo boolean not null default true,
   need_ai_check boolean not null default false,
+  reward_points int not null default 0,
   status enum('pending', 'submitted', 'ai_checking', 'parent_review', 'confirmed', 'needs_resubmit') not null default 'pending',
   created_at datetime(3) not null,
   updated_at datetime(3) not null,
@@ -63,6 +64,58 @@ create table if not exists study_task (
   constraint fk_study_task_family foreign key (family_id) references family (id),
   constraint fk_study_task_child foreign key (child_user_id) references `user` (id),
   constraint fk_study_task_creator foreign key (creator_user_id) references `user` (id)
+) engine = InnoDB;
+
+create table if not exists child_point_account (
+  id varchar(64) primary key,
+  family_id varchar(64) not null,
+  child_user_id varchar(64) not null,
+  balance int not null default 0,
+  total_earned int not null default 0,
+  total_spent int not null default 0,
+  created_at datetime(3) not null,
+  updated_at datetime(3) not null,
+  unique key uk_child_point_account_child (family_id, child_user_id),
+  constraint fk_child_point_account_family foreign key (family_id) references family (id),
+  constraint fk_child_point_account_child foreign key (child_user_id) references `user` (id)
+) engine = InnoDB;
+
+create table if not exists point_ledger (
+  id varchar(64) primary key,
+  family_id varchar(64) not null,
+  child_user_id varchar(64) not null,
+  change_amount int not null,
+  balance_after int not null,
+  reason enum('task_reward', 'wish_redeem') not null,
+  source_type enum('task_review', 'wish') not null,
+  source_id varchar(64) not null,
+  operator_user_id varchar(64) not null,
+  created_at datetime(3) not null,
+  unique key uk_point_ledger_source (family_id, source_type, source_id),
+  key idx_point_ledger_child_created (child_user_id, created_at),
+  constraint fk_point_ledger_family foreign key (family_id) references family (id),
+  constraint fk_point_ledger_child foreign key (child_user_id) references `user` (id),
+  constraint fk_point_ledger_operator foreign key (operator_user_id) references `user` (id)
+) engine = InnoDB;
+
+create table if not exists wish (
+  id varchar(64) primary key,
+  family_id varchar(64) not null,
+  child_user_id varchar(64) not null,
+  title varchar(100) not null,
+  description text null,
+  required_points int null,
+  status enum('pending_review', 'approved', 'rejected', 'redeem_requested', 'redeemed') not null default 'pending_review',
+  parent_user_id varchar(64) null,
+  reject_reason varchar(500) null,
+  created_at datetime(3) not null,
+  updated_at datetime(3) not null,
+  redeemed_at datetime(3) null,
+  key idx_wish_family_status (family_id, status),
+  key idx_wish_child_status (child_user_id, status),
+  constraint fk_wish_family foreign key (family_id) references family (id),
+  constraint fk_wish_child foreign key (child_user_id) references `user` (id),
+  constraint fk_wish_parent foreign key (parent_user_id) references `user` (id)
 ) engine = InnoDB;
 
 create table if not exists task_submission (
@@ -181,21 +234,29 @@ on duplicate key update family_id = values(family_id);
 insert into study_task (
   id, family_id, child_user_id, creator_user_id, subject, task_type,
   title, description, due_date, due_time, need_photo, need_ai_check,
-  status, created_at, updated_at
+  reward_points, status, created_at, updated_at
 ) values
   (
     'task-math-1', 'family-1', 'child-1', 'parent-1', '数学', '练习',
     '完成数学计算练习第 3 页', '完成第 3 页全部计算题，订正错题并圈出不会的题。',
-    current_date(), '20:30', true, false, 'pending', @now, @now
+    current_date(), '20:30', true, false, 10, 'pending', @now, @now
   ),
   (
     'task-english-1', 'family-1', 'child-1', 'parent-1', '英语', '背诵',
     '默写 Unit 2 单词', '默写 Unit 2 重点单词 20 个，拍照上传默写纸。',
-    current_date(), '21:00', true, false, 'pending', @now, @now
+    current_date(), '21:00', true, false, 8, 'pending', @now, @now
   )
 on duplicate key update
   due_date = values(due_date),
   due_time = values(due_time),
+  reward_points = values(reward_points),
   status = values(status),
   updated_at = values(updated_at),
   deleted_at = null;
+
+insert into child_point_account (
+  id, family_id, child_user_id, balance, total_earned, total_spent, created_at, updated_at
+) values (
+  'point-account-child-1', 'family-1', 'child-1', 0, 0, 0, @now, @now
+)
+on duplicate key update updated_at = values(updated_at);

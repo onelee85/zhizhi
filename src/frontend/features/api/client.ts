@@ -1,4 +1,13 @@
-import type { ParentDashboard, StudyTask, Subject, TaskType, User } from "@/features/tasks/types";
+import type {
+  ChildPointAccount,
+  ParentDashboard,
+  PointLedger,
+  StudyTask,
+  Subject,
+  TaskType,
+  User,
+  Wish
+} from "@/features/tasks/types";
 
 const TOKEN_KEY = "zhizhi_auth_token";
 const USER_KEY = "zhizhi_auth_user";
@@ -142,6 +151,7 @@ export type CreateTaskInput = {
   dueTime?: string;
   needPhoto: boolean;
   needAiCheck: boolean;
+  rewardPoints: number;
 };
 
 export async function createTask(input: CreateTaskInput) {
@@ -180,6 +190,7 @@ export type UpdateTaskInput = {
   dueTime?: string;
   needPhoto?: boolean;
   needAiCheck?: boolean;
+  rewardPoints?: number;
 };
 
 export async function updateTask(taskId: string, input: UpdateTaskInput) {
@@ -199,8 +210,84 @@ export async function reviewTask(
   taskId: string,
   input: { reviewResult: "pass" | "need_resubmit"; comment?: string }
 ) {
-  return request<{ task: StudyTask }>(`/tasks/${encodeURIComponent(taskId)}/reviews`, {
+  return request<{ task: StudyTask; pointLedger: PointLedger | null }>(`/tasks/${encodeURIComponent(taskId)}/reviews`, {
     method: "POST",
     body: JSON.stringify(input)
   });
+}
+
+export async function getPointAccount(options: { childUserId?: string } = {}) {
+  const params = new URLSearchParams();
+  if (options.childUserId) {
+    params.set("childUserId", options.childUserId);
+  }
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return request<{ account: ChildPointAccount; ledger: PointLedger[] }>(`/points/account${query}`);
+}
+
+export async function getWishes(options: { childUserId?: string } = {}) {
+  const params = new URLSearchParams();
+  if (options.childUserId) {
+    params.set("childUserId", options.childUserId);
+  }
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return request<{ wishes: Wish[] }>(`/wishes${query}`);
+}
+
+export async function getWish(wishId: string) {
+  return request<{ wish: Wish }>(`/wishes/${encodeURIComponent(wishId)}`);
+}
+
+export async function createWish(input: { title: string; description?: string }) {
+  return request<{ wish: Wish }>("/wishes", {
+    method: "POST",
+    body: JSON.stringify(input)
+  });
+}
+
+export type UpdateWishInput = {
+  title: string;
+  description?: string;
+};
+
+export async function updateWish(wishId: string, input: UpdateWishInput) {
+  return request<{ wish: Wish }>(`/wishes/${encodeURIComponent(wishId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(input)
+  });
+}
+
+export async function deleteWish(wishId: string) {
+  return request<void>(`/wishes/${encodeURIComponent(wishId)}`, {
+    method: "DELETE"
+  });
+}
+
+export async function approveWish(wishId: string, input: { requiredPoints: number }) {
+  return request<{ wish: Wish }>(`/wishes/${encodeURIComponent(wishId)}/approve`, {
+    method: "PATCH",
+    body: JSON.stringify(input)
+  });
+}
+
+export async function rejectWish(wishId: string, input: { rejectReason?: string }) {
+  return request<{ wish: Wish }>(`/wishes/${encodeURIComponent(wishId)}/reject`, {
+    method: "PATCH",
+    body: JSON.stringify(input)
+  });
+}
+
+export async function requestWishRedeem(wishId: string) {
+  return request<{ wish: Wish }>(`/wishes/${encodeURIComponent(wishId)}/redeem-requests`, {
+    method: "POST"
+  });
+}
+
+export async function confirmWishRedeem(wishId: string) {
+  return request<{ wish: Wish; pointLedger: PointLedger }>(
+    `/wishes/${encodeURIComponent(wishId)}/redeem-confirmations`,
+    {
+      method: "POST"
+    }
+  );
 }

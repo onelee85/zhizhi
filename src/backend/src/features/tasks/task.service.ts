@@ -2,6 +2,7 @@ import { AppError, assertFound } from "../../shared/errors.js";
 import { deleteLocalFile } from "../../server/uploads.js";
 import type { StudyTask, User } from "../../domain/types.js";
 import type { TaskRepository } from "./task.repository.js";
+import type { IncentiveService } from "../incentives/incentive.service.js";
 import type { z } from "zod";
 import type { createTaskSchema, reviewTaskSchema, submitTaskSchema, updateTaskSchema } from "./task.schemas.js";
 
@@ -11,7 +12,10 @@ type SubmitTaskInput = z.infer<typeof submitTaskSchema>;
 type ReviewTaskInput = z.infer<typeof reviewTaskSchema>;
 
 export class TaskService {
-  constructor(private readonly repository: TaskRepository) {}
+  constructor(
+    private readonly repository: TaskRepository,
+    private readonly incentiveService?: IncentiveService
+  ) {}
 
   async listTodayTasks(
     user: User,
@@ -52,7 +56,8 @@ export class TaskService {
       dueDate: input.dueDate,
       dueTime: input.dueTime,
       needPhoto: input.needPhoto,
-      needAiCheck: input.needAiCheck
+      needAiCheck: input.needAiCheck,
+      rewardPoints: input.rewardPoints
     });
   }
 
@@ -137,10 +142,16 @@ export class TaskService {
     submission.status = submissionStatus;
     submission.updatedAt = new Date().toISOString();
 
+    const pointLedger =
+      input.reviewResult === "pass" && this.incentiveService
+        ? await this.incentiveService.awardTaskReward(parent, task, review.id)
+        : null;
+
     return {
       task: await this.repository.findTaskById(taskId),
       submission,
-      review
+      review,
+      pointLedger
     };
   }
 

@@ -1,0 +1,224 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { AppButton, AppButtonLink } from "@/components/ui/button";
+import { AppCard, AppCardTitle } from "@/components/ui/card";
+import { AppConfirmModal } from "@/components/ui/modal";
+import {
+  ApiError,
+  deleteWish,
+  getPointAccount,
+  getWishes,
+  requestWishRedeem
+} from "@/features/api/client";
+import { pointLedgerReasonLabel, wishStatusLabel, wishStatusTone } from "@/features/incentives/wish-status";
+import type { ChildPointAccount, PointLedger, Wish } from "@/features/tasks/types";
+
+export function ChildWishlist() {
+  const [account, setAccount] = useState<ChildPointAccount | null>(null);
+  const [ledger, setLedger] = useState<PointLedger[]>([]);
+  const [wishes, setWishes] = useState<Wish[]>([]);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [actionWishId, setActionWishId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Wish | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    async function load() {
+      setIsLoading(true);
+      setError("");
+
+      try {
+        const [pointResult, wishResult] = await Promise.all([getPointAccount(), getWishes()]);
+        if (!active) {
+          return;
+        }
+        setAccount(pointResult.account);
+        setLedger(pointResult.ledger);
+        setWishes(wishResult.wishes);
+      } catch (err) {
+        if (active) {
+          setError(err instanceof ApiError ? err.message : "加载心愿清单失败");
+        }
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void load();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function handleRedeem(wish: Wish) {
+    setError("");
+    setMessage("");
+    setActionWishId(wish.id);
+
+    try {
+      const result = await requestWishRedeem(wish.id);
+      setWishes((prev) => prev.map((item) => (item.id === wish.id ? result.wish : item)));
+      setMessage("兑换申请已发送，等家长确认后扣积分。");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "申请兑换失败");
+    } finally {
+      setActionWishId(null);
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) {
+      return;
+    }
+
+    setError("");
+    setMessage("");
+    setActionWishId(deleteTarget.id);
+
+    try {
+      await deleteWish(deleteTarget.id);
+      setWishes((prev) => prev.filter((item) => item.id !== deleteTarget.id));
+      setMessage("已删除该心愿。");
+      setDeleteTarget(null);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "删除心愿失败");
+    } finally {
+      setActionWishId(null);
+    }
+  }
+
+  const balance = account?.balance ?? 0;
+
+  return (
+    <div className="mx-auto grid max-w-5xl gap-6">
+      <div className="grid gap-5 rounded-[32px] bg-[#fffdf2] p-5 shadow-[0_10px_0_rgba(114,93,66,0.08)] md:grid-cols-[1fr_auto] md:items-end md:p-6">
+        <div>
+          <p className="text-caption-uppercase text-muted">Wish island</p>
+          <h1 className="mt-3 text-display-sm tracking-normal text-ink">我的心愿清单</h1>
+          <p className="mt-3 max-w-2xl text-body-sm text-body">
+            把想实现的小目标放进清单，积分够了就发起兑换申请。
+          </p>
+        </div>
+        <div className="rounded-[24px] bg-[#82d5bb] px-6 py-4 text-center text-white shadow-[inset_0_-5px_0_rgba(68,129,111,0.35)]">
+          <p className="text-caption font-semibold text-white/80">当前积分</p>
+          <p className="mt-1 text-display-sm tracking-normal text-white">{isLoading ? "-" : balance}</p>
+        </div>
+      </div>
+
+      {error ? <AppCard className="text-body-sm text-brand-coral">{error}</AppCard> : null}
+      {message ? <AppCard variant="mint" className="text-body-sm text-white">{message}</AppCard> : null}
+
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.8fr)]">
+        <AppCard>
+          <div className="grid gap-4">
+            <AppCardTitle>提交新心愿</AppCardTitle>
+            <p className="text-body-sm text-muted">
+              写下想实现的小目标，提交后由家长设置所需积分。
+            </p>
+            <AppButtonLink href="/child/wishes/new" className="w-fit">
+              去提交心愿
+            </AppButtonLink>
+          </div>
+        </AppCard>
+
+        <AppCard className="overflow-hidden">
+          <AppCardTitle>积分流水</AppCardTitle>
+          <div className="mt-4 grid gap-3">
+            {ledger.slice(0, 5).map((item) => (
+              <div key={item.id} className="rounded-[20px] bg-[#fffdf8] px-4 py-3 text-body-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-bold text-ink">{pointLedgerReasonLabel[item.reason]}</span>
+                  <span className={item.changeAmount >= 0 ? "text-[#3a8f77]" : "text-brand-coral"}>
+                    {item.changeAmount >= 0 ? "+" : ""}
+                    {item.changeAmount}
+                  </span>
+                </div>
+                <p className="mt-1 text-caption text-muted">余额 {item.balanceAfter}</p>
+              </div>
+            ))}
+            {!isLoading && ledger.length === 0 ? <p className="text-body-sm text-muted">还没有积分记录。</p> : null}
+          </div>
+        </AppCard>
+      </div>
+
+      <AppCard className="p-0 md:p-0">
+        <div className="px-5 pt-5 md:px-6 md:pt-6">
+          <AppCardTitle>心愿列表</AppCardTitle>
+        </div>
+        <div className="mt-4 grid gap-3 px-4 pb-4 md:px-5 md:pb-5">
+          {wishes.map((wish) => {
+            const requiredPoints = wish.requiredPoints ?? 0;
+            const canRedeem = wish.status === "approved" && balance >= requiredPoints;
+
+            return (
+              <div key={wish.id} className="grid gap-4 rounded-[24px] border-2 border-[#eadfc3] bg-[#fffdf8] p-4 md:grid-cols-[1fr_auto]">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge tone={wishStatusTone[wish.status]}>{wishStatusLabel[wish.status]}</Badge>
+                    {wish.requiredPoints ? <Badge tone="lavender">{wish.requiredPoints} 积分</Badge> : null}
+                  </div>
+                  <h2 className="mt-3 text-title-md text-ink">{wish.title}</h2>
+                  {wish.description ? <p className="mt-1 text-body-sm text-muted">{wish.description}</p> : null}
+                  {wish.rejectReason ? <p className="mt-2 text-caption text-brand-coral">驳回原因：{wish.rejectReason}</p> : null}
+                </div>
+                {wish.status === "approved" ? (
+                  <div className="flex items-center md:justify-end">
+                    <AppButton
+                      type="button"
+                      disabled={!canRedeem || actionWishId === wish.id}
+                      onClick={() => void handleRedeem(wish)}
+                    >
+                      {actionWishId === wish.id ? "申请中..." : canRedeem ? "申请兑换" : "积分不足"}
+                    </AppButton>
+                  </div>
+                ) : null}
+                {wish.status === "rejected" ? (
+                  <div className="flex flex-wrap items-center gap-3 md:justify-end">
+                    <AppButtonLink
+                      href={`/child/wishes/${encodeURIComponent(wish.id)}/edit`}
+                      variant="secondary"
+                    >
+                      修改心愿
+                    </AppButtonLink>
+                    <AppButton
+                      type="button"
+                      variant="danger"
+                      disabled={actionWishId === wish.id}
+                      onClick={() => setDeleteTarget(wish)}
+                    >
+                      删除心愿
+                    </AppButton>
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+          {!isLoading && wishes.length === 0 ? (
+            <p className="rounded-[22px] border-2 border-dashed border-[#eadfc3] bg-[#fffdf8] px-4 py-8 text-center text-body-sm text-muted">
+              还没有提交心愿。
+            </p>
+          ) : null}
+        </div>
+      </AppCard>
+
+      <AppConfirmModal
+        open={Boolean(deleteTarget)}
+        title="删除心愿"
+        description="删除后无法恢复，需要重新提交心愿。"
+        detail={deleteTarget ? `心愿：${deleteTarget.title}` : undefined}
+        confirmText="删除心愿"
+        tone="danger"
+        loading={Boolean(deleteTarget && actionWishId === deleteTarget.id)}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => void handleDelete()}
+      />
+    </div>
+  );
+}

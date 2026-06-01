@@ -5,10 +5,10 @@
 知知小助手是面向家长和孩子的 AI 学习任务打卡工具。第一版 MVP 聚焦家庭学习管理闭环：
 
 ```text
-家长布置任务 -> 孩子查看任务 -> 孩子拍照打卡 -> AI 检查 -> 家长查看并确认 -> 每周报告复盘
+家长布置任务 -> 孩子查看任务 -> 孩子拍照打卡 -> AI 检查 -> 家长查看并确认 -> 发放积分 -> 兑换心愿 -> 每周报告复盘
 ```
 
-产品目标是帮助家长降低每日检查成本，帮助孩子明确每日任务，并通过 AI 检查和周报发现完成情况、错题和薄弱点。
+产品目标是帮助家长降低每日检查成本，帮助孩子明确每日任务，并通过 AI 检查、积分愿望激励和周报发现完成情况、错题和薄弱点。
 
 ## 技术栈
 
@@ -48,13 +48,15 @@
 
 ## 当前前端
 
-阶段 1 已创建可运行的 Next.js 前端，并已接入本地后端 API。
+阶段 1-2 已创建可运行的 Next.js 前端，并已接入本地后端 API。
 
 当前前端 UI 已按 `src/frontend/DESIGN.md` 的视觉方向统一为 `animal-island-ui` 的温暖、圆润、轻游戏化风格。全局入口导入 `animal-island-ui/style`，业务页面优先通过 `src/frontend/components/ui/` 下的 `AppButton`、`AppCard`、`AppModal`、`AppTabs`、`AppSelect` 等本地封装使用组件库。
 
 通用弹窗统一通过 `AppModal` 和 `AppConfirmModal` 封装。删除任务等确认类操作使用 `AppConfirmModal`，不再使用浏览器原生 `window.confirm`，以保持 animal-island 风格、加载态和移动端布局一致。
 
-孩子端优先呈现“岛屿任务”体验：今日任务页使用任务视图 tabs 和任务编号卡片，打卡页保持单列表单流程，提交结果页通过弹窗展示 AI 检查状态或摘要。家长端保持轻量管理台风格：摘要卡、日期筛选、受控状态选择器和任务列表保持清晰可扫。
+孩子端优先呈现“岛屿任务”体验：今日任务页使用任务视图 tabs 和任务编号卡片，打卡页保持单列表单流程，提交结果页通过弹窗展示 AI 检查状态或摘要。孩子心愿清单页展示当前积分、积分流水、提交心愿和申请兑换入口。
+
+家长端保持轻量管理台风格：摘要卡、日期筛选、受控状态选择器和任务列表保持清晰可扫。家长愿望管理页展示孩子积分、愿望状态、待设置积分、驳回和兑换确认操作。
 
 前端专用说明文档位于 `src/frontend/README.md`，包含项目架构、依赖版本、启动、打包、部署和页面验证方式。
 
@@ -62,11 +64,15 @@
 
 - `/`：首页和阶段说明。
 - `/login`：用户名密码登录页，调用 `POST /auth/login`。
-- `/parent`：家长任务管理页，调用 `GET /parent/dashboard`，任务列表支持按截止日期和任务状态筛选，列表每项支持通过统一确认弹窗删除（`pending`/`needs_resubmit` 状态）。
-- `/parent/tasks/new`：创建任务表单，调用 `POST /tasks`。
+- `/parent`：家长任务管理页，调用 `GET /parent/dashboard`，任务列表支持按截止日期和任务状态筛选，展示任务奖励积分，列表每项支持通过统一确认弹窗删除（`pending`/`needs_resubmit` 状态）。
+- `/parent/wishes`：家长愿望管理页，调用 `GET /points/account`、`GET /wishes`、`PATCH /wishes/:wishId/approve`、`PATCH /wishes/:wishId/reject` 和 `POST /wishes/:wishId/redeem-confirmations`。
+- `/parent/tasks/new`：创建任务表单，调用 `POST /tasks`，支持设置任务奖励积分。
 - `/parent/tasks/[taskId]`：家长任务详情和审核页，调用 `GET /tasks/:taskId` 和 `POST /tasks/:taskId/reviews`；仅在任务已有提交且处于 `submitted`、`ai_checking` 或 `parent_review` 状态时显示确认通过/要求补充，`pending`/`needs_resubmit` 状态显示编辑和删除按钮，删除前使用统一确认弹窗。
-- `/parent/tasks/[taskId]/edit`：编辑任务表单，调用 `GET /tasks/:taskId` 预填并 `PATCH /tasks/:taskId` 保存。
-- `/child`：孩子今日任务页，调用 `GET /tasks/today`；支持通过 tabs 切换今日、逾期和已完成三种筛选视图，复用 `includeOverdueIncomplete=true` 与 `includeCompleted=true` 请求参数取回完整筛选数据。
+- `/parent/tasks/[taskId]/edit`：编辑任务表单，调用 `GET /tasks/:taskId` 预填并 `PATCH /tasks/:taskId` 保存，支持修改未完成任务的奖励积分。
+- `/child`：孩子今日任务页，调用 `GET /tasks/today`；支持通过 tabs 切换今日、逾期和已完成三种筛选视图，复用 `includeOverdueIncomplete=true` 与 `includeCompleted=true` 请求参数取回完整筛选数据，并展示任务奖励积分。
+- `/child/wishes`：孩子心愿清单页，调用 `GET /points/account`、`GET /wishes` 和 `POST /wishes/:wishId/redeem-requests`；通过入口卡片跳转到 `/child/wishes/new` 提交心愿；被驳回的心愿提供"修改心愿"和"删除心愿"入口，删除前使用统一确认弹窗。
+- `/child/wishes/new`：孩子提交新心愿页，调用 `POST /wishes`，提交成功后返回 `/child/wishes`。
+- `/child/wishes/[wishId]/edit`：孩子修改被驳回的心愿页，调用 `GET /wishes/:wishId` 预填并 `PATCH /wishes/:wishId` 保存；保存成功后状态回到 `pending_review` 并清空所需积分、家长审核记录和驳回原因。
 - `/child/tasks/[taskId]/check-in`：孩子打卡页，调用 `GET /tasks/:taskId` 和 `POST /tasks/:taskId/submissions`。
 - `/child/tasks/[taskId]/result`：提交结果页，调用 `GET /tasks/:taskId`，展示任务信息、提交状态、孩子备注和已上传图片，并通过弹窗展示 AI 检查状态或摘要。
 
@@ -76,11 +82,11 @@
 
 前端通过 `src/frontend/app/api/backend/[...path]/route.ts` 提供同源代理，默认转发到 `http://localhost:4000`，可通过 `NEXT_PUBLIC_API_BASE_URL` 覆盖。图片展示路径 `/uploads/photos/<filename>` 由 `src/frontend/app/uploads/photos/[filename]/route.ts` 代理到后端本地文件读取接口。
 
-当前后端尚无家庭孩子列表接口，创建任务页阶段 1 使用 Demo seed 中的 `child-1` 作为默认孩子。
+当前后端尚无家庭孩子列表接口，创建任务页和家长愿望管理页阶段 2 使用 Demo seed 中的 `child-1` 作为默认孩子。
 
 ## 当前后端接口
 
-阶段 1 已创建可运行的后端接口服务，当前已接入 MySQL repository。
+阶段 1-2 已创建可运行的后端接口服务，当前已接入 MySQL repository。
 
 后端专用说明文档位于 `src/backend/README.md`，包含项目架构、技术栈版本、运行方式、打包部署、测试账号和接口验证示例。
 
@@ -113,7 +119,17 @@ http://localhost:4000
 | `PATCH` | `/tasks/:taskId` | 家长编辑未完成任务 |
 | `DELETE` | `/tasks/:taskId` | 家长删除未完成任务 |
 | `POST` | `/tasks/:taskId/submissions` | 孩子提交打卡 |
-| `POST` | `/tasks/:taskId/reviews` | 家长审核提交，要求任务已有孩子提交且处于可审核状态 |
+| `POST` | `/tasks/:taskId/reviews` | 家长审核提交，审核通过时按任务积分幂等发放积分 |
+| `GET` | `/points/account` | 获取孩子积分账户和积分流水 |
+| `GET` | `/wishes` | 获取愿望列表 |
+| `POST` | `/wishes` | 孩子提交愿望 |
+| `GET` | `/wishes/:wishId` | 获取单个愿望 |
+| `PATCH` | `/wishes/:wishId` | 孩子修改被驳回的心愿；保存后状态重置为 `pending_review` |
+| `DELETE` | `/wishes/:wishId` | 孩子物理删除被驳回的心愿 |
+| `PATCH` | `/wishes/:wishId/approve` | 家长设置愿望所需积分并通过 |
+| `PATCH` | `/wishes/:wishId/reject` | 家长驳回愿望 |
+| `POST` | `/wishes/:wishId/redeem-requests` | 孩子申请兑换愿望 |
+| `POST` | `/wishes/:wishId/redeem-confirmations` | 家长确认兑换并扣减积分 |
 
 当前后端已包含：
 
@@ -121,6 +137,7 @@ http://localhost:4000
 - 核心表 schema 和本地 Demo seed。
 - 用户名密码登录的 MySQL 用户读取和 scrypt 密码哈希校验。
 - 阶段 1 任务、提交、图片、审核接口的数据持久化。
+- 阶段 2 任务奖励积分、积分账户/流水、愿望提交、愿望审核、兑换申请和家长确认兑换接口的数据持久化。
 - 本地照片上传和读取，图片保存到 `src/backend/storage/uploads/photos/`，数据库只保存 `/uploads/photos/<filename>` 相对路径。
 - 远程 MySQL 接口验证已覆盖登录、今日任务、家长看板、创建任务、任务详情、孩子提交、家长审核和基础权限拦截。
 
@@ -155,8 +172,8 @@ mysql -h 127.0.0.1 -u root -p < db/schema.sql
 
 ## 核心角色
 
-- 家长：创建任务、查看今日看板、查看图片和 AI 结果、确认通过或要求补充、查看周报。
-- 孩子：查看今日任务、完成任务后上传图片打卡、查看提交结果和补充要求。
+- 家长：创建任务、设置任务积分、查看今日看板、查看图片和 AI 结果、确认通过或要求补充、处理孩子愿望和兑换申请、查看周报。
+- 孩子：查看今日任务、完成任务后上传图片打卡、查看提交结果和补充要求、提交愿望、申请兑换心愿。
 - AI 助手：检查上传内容是否匹配任务、判断完成度、识别异常、提取疑似错题、生成周报。
 
 ## 核心页面
@@ -164,8 +181,9 @@ mysql -h 127.0.0.1 -u root -p < db/schema.sql
 家长端：
 
 - 首页 / 今日看板：展示今日完成率、任务总览、异常提醒、待确认任务。
-- 创建任务页：填写科目、任务类型、标题、说明、截止时间、拍照和 AI 检查选项。
+- 创建任务页：填写科目、任务类型、标题、说明、截止时间、任务积分、拍照和 AI 检查选项。
 - 任务详情页：查看任务信息、提交状态、上传图片、AI 结果、审核操作和错题入口。
+- 愿望管理页：查看孩子积分、处理待设置积分愿望、驳回愿望、确认兑换申请。
 - 周报页：查看本周概览、科目分析、错题与薄弱点、AI 建议和历史报告。
 
 孩子端：
@@ -173,18 +191,22 @@ mysql -h 127.0.0.1 -u root -p < db/schema.sql
 - 今日任务页：展示今日任务清单、状态、完成进度和打卡入口。
 - 打卡提交页：展示任务要求，支持勾选完成、上传图片、填写备注并提交。
 - 提交结果页：展示提交成功、AI 检查状态、家长确认状态和补充原因。
+- 愿望清单页：查看当前积分、提交愿望、查看愿望状态、积分足够时申请兑换。
 
 ## 核心数据表
 
 - `user`：应用用户，包含角色、用户名、密码哈希、昵称、头像、手机号。
 - `family_member`：家庭关系，关联家庭、家长用户和孩子用户。
-- `study_task`：学习任务，包含科目、任务类型、标题、说明、日期、截止时间、状态。
+- `study_task`：学习任务，包含科目、任务类型、标题、说明、日期、截止时间、任务积分、状态。
 - `task_submission`：任务提交，记录孩子备注、提交状态和提交时间。
 - `submission_image`：提交图片，记录图片地址、缩略图、排序和上传状态。
 - `ai_check_result`：AI 检查结果，记录匹配度、完成度、异常、建议、状态和 `raw_result`。
 - `parent_review`：家长审核记录，记录通过、要求补充或标记 AI 不准确。
 - `wrong_question`：错题记录，关联孩子、任务、提交、图片、知识点和掌握状态。
 - `weekly_report`：周报，记录周统计、科目统计、薄弱点、AI 报告正文和下周建议。
+- `child_point_account`：孩子积分账户，记录当前可用积分。
+- `point_ledger`：积分流水，记录任务奖励和心愿兑换扣减。
+- `wish`：愿望清单，记录孩子提交的愿望、家长设置的所需积分和兑换状态。
 
 ## 任务与提交状态
 
@@ -200,6 +222,33 @@ mysql -h 127.0.0.1 -u root -p < db/schema.sql
 ```text
 未提交 -> 已提交 -> AI 检查中 -> AI 检查完成 / AI 检查失败 -> 家长确认 / 需补充
 ```
+
+积分发放状态：
+
+```text
+任务提交 -> AI 检查 / 待家长确认 -> 家长确认完成 -> 发放任务积分 -> 记录积分流水
+```
+
+愿望状态：
+
+```text
+待家长设置积分 -> 可兑换 -> 兑换申请中 -> 已兑换
+                 -> 已驳回
+```
+
+积分与愿望规则：
+
+- 积分由家长在任务上设置，家长确认任务完成后才发放。
+- 孩子提交愿望后，家长只能设置所需积分并通过，或驳回，不能修改孩子愿望原文。
+- 孩子只是发起兑换申请，家长确认后才扣积分并标记已兑换。
+- 第一版周报不展示积分和愿望数据。
+
+## MVP 阶段计划
+
+- 阶段一：任务打卡闭环，先跑通家长创建任务、孩子查看和上传打卡、家长看板与审核。
+- 阶段二：积分愿望激励，加入任务积分发放、孩子提交愿望、家长设置愿望积分和确认兑换。
+- 阶段三：AI 完成度检查与错题记录，加入 AI 检查、家长覆盖 AI 判断、AI 疑似错题提取和家长手动错题记录。
+- 阶段四：薄弱点分析和周报。
 
 ## AI 检查
 
@@ -238,6 +287,8 @@ AI 检查输出：
 - 执行情况分析，包括完成较好或较差的日期、容易拖延的任务类型。
 - 薄弱点分析，包括高频错题知识点、不熟练题型和重复问题。
 - 下周行动建议，建议必须基于本周真实数据。
+
+第一版周报不展示积分、愿望和兑换数据。
 
 ## 非功能要求
 

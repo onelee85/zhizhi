@@ -127,12 +127,48 @@
 - 全局 modal 样式补充 animal-island 风格的奶油底、柔和阴影、危险操作提示标记、响应式按钮布局。
 - 本次仅调整前端交互和通用弹窗样式，后端接口无变化，`docs/api.md` 无需更新。
 - 前端通过 `pnpm typecheck`；`pnpm build` 在沙箱内仍因 Turbopack 绑定端口限制失败，提权后构建通过。
+- 根据产品需求沟通结果，更新 `docs/prd.md`，在第一版 MVP 中加入愿望清单和积分兑换需求。
+- 明确任务积分由家长在任务上设置，家长确认任务完成后才发放积分。
+- 明确孩子提交愿望后，家长只能设置所需积分并通过，或驳回，不能修改孩子愿望原文。
+- 明确孩子仅发起兑换申请，家长确认后才扣减积分并将愿望标记为已兑换。
+- 明确第一版周报不展示积分、愿望和兑换数据。
+- 同步更新 `docs/documentation.md` 的产品闭环、角色、页面、数据表、状态流转和当前未实现范围。
+- 本次仅调整需求与项目文档，未改动前后端接口实现，`docs/api.md` 无需更新。
+- 更新 `docs/plan.md`，将愿望清单与积分兑换规划放入阶段二，与 AI 完成度检查同阶段推进。
+- 同步调整 `docs/prd.md` 中 MVP 开发计划和研发排期：阶段一保留任务打卡闭环，阶段二加入积分发放、愿望提交与兑换。
+- 同步更新 `docs/documentation.md` 的 MVP 阶段计划说明。
+- 根据最新阶段规划，更新 `docs/plan.md`，将 AI 完成度检查从阶段二移到阶段三。
+- 阶段二调整为积分愿望激励，阶段三调整为 AI 完成度检查与错题记录。
+- 同步更新 `docs/prd.md` 的 MVP 开发计划和研发排期，以及 `docs/documentation.md` 的 MVP 阶段计划说明。
+- 完成阶段 2 积分愿望激励的前端接入。
+- 前端 API client 新增积分账户、愿望列表、孩子提交愿望、家长通过/驳回愿望、孩子申请兑换和家长确认兑换方法。
+- 前端任务类型补充 `rewardPoints`，创建/编辑任务表单新增奖励积分输入，家长和孩子任务列表、家长任务详情展示任务奖励积分。
+- 新增孩子端 `/child/wishes` 心愿清单页：展示当前积分、积分流水、提交新心愿、查看心愿状态，并在积分足够时发起兑换申请。
+- 新增家长端 `/parent/wishes` 愿望管理页：展示孩子积分、待设置积分/待确认兑换统计、积分流水，支持设置所需积分并通过、驳回愿望和确认兑换。
+- 顶部导航、孩子任务页和家长任务管理页新增心愿单入口。
+- 当前前端仍使用 Demo seed 中的 `child-1` 查询家长端孩子积分和愿望，待后续家庭孩子列表接口完成后替换为真实孩子选择。
+- 本次未修改后端 API，`docs/api.md` 无需更新。
+- 前端通过 `pnpm typecheck`；`pnpm build` 在沙箱内仍因 Turbopack 绑定端口限制失败，提权后构建通过。
+- 孩子端提交心愿入口拆分为独立页面。
+- 新增 `src/frontend/features/incentives/child-wish-create-form.tsx`，承载心愿标题、说明、提交与失败提示，提交成功后通过 `router.push` 跳转回 `/child/wishes`。
+- 新增 `src/frontend/app/child/wishes/new/page.tsx` 路由，渲染 `ChildWishCreateForm`，遵循 `app/child/tasks/[taskId]/check-in` 的页面拆分模式。
+- `ChildWishlist` 移除内联表单与提交流程，保留当前积分、积分流水、心愿列表和兑换申请；原“提交新心愿”卡片改为 `AppButtonLink` 跳转到 `/child/wishes/new`。
+- 本次未修改后端 API，`docs/api.md` 无需更新；`docs/documentation.md` 同步新增页面说明。
+- 被家长驳回的心愿支持孩子在孩子端修改或删除。
+- 后端新增 `GET /wishes/:wishId`、`PATCH /wishes/:wishId` 和 `DELETE /wishes/:wishId` 三个心愿接口。
+- `PATCH /wishes/:wishId` 仅 `rejected` 状态可调用，仅心愿所有者孩子可调用；保存后状态重置为 `pending_review`，并清空 `required_points`、`parent_user_id` 和 `reject_reason`。
+- `DELETE /wishes/:wishId` 仅 `rejected` 状态可调用，仅心愿所有者孩子可调用；直接物理删除心愿记录。
+- 新增 `IncentiveService.getWish / updateWish / deleteWish` 方法和对应 `IncentiveRepository` 方法；`IncentiveService` 单测覆盖正常修改/删除、跨孩子和跨状态拦截。
+- `src/backend/src/features/incentives/incentive.schemas.ts` 新增 `updateWishSchema`，字段与 `createWishSchema` 一致。
+- 前端 API 客户端新增 `getWish`、`updateWish` 和 `deleteWish` 方法。
+- 新增 `src/frontend/features/incentives/child-wish-edit-form.tsx` 和 `src/frontend/app/child/wishes/[wishId]/edit/page.tsx`：复用 `/child/wishes/new` 表单结构，预填心愿标题、说明和驳回原因；保存成功后返回 `/child/wishes`。
+- `ChildWishlist` 在状态为 `rejected` 的心愿上展示“修改心愿”和“删除心愿”操作；删除前打开 `AppConfirmModal` 确认，确认成功后从列表移除。
 
 ## 当前状态
 
-- 当前仓库已创建阶段 1 前端页面，并已接入本地后端 API。
+- 当前仓库已创建阶段 1-2 前端页面，并已接入本地后端 API。
 - 前端应用位于 `src/frontend`。
-- 当前仓库已创建阶段 1 后端接口服务，并已对接 MySQL repository。
+- 当前仓库已创建阶段 1-2 后端接口服务，并已对接 MySQL repository。
 - 后端应用位于 `src/backend`。
 - `docs/prd.md` 是产品需求来源。
 - `AGENTS.md` 是工程约束来源。
@@ -169,7 +205,19 @@
 3. 实现薄弱点统计和每周学习报告。
 4. 补齐服务层单测、API 集成测试和核心 E2E 测试。
 
-## 阶段 1 前端验证
+## 阶段 2 后端接口实现
+
+- `study_task` 新增 `reward_points`，家长创建或编辑未完成任务时可设置奖励积分。
+- 新增 `child_point_account`、`point_ledger`、`wish` 表，支持积分账户、积分流水和愿望状态流转。
+- 新增 `src/backend/db/migrations/20260601_phase2_incentives.sql`，用于已有本地库升级阶段 2 数据结构。
+- 家长审核任务通过时按 `rewardPoints` 发放积分，使用 `point_ledger` 的来源唯一约束保证同一任务只发一次。
+- 新增 `GET /points/account`，孩子查看自己的积分账户，家长按 `childUserId` 查看家庭内孩子积分账户和流水。
+- 新增愿望接口：孩子提交愿望，家长设置所需积分并通过或驳回，孩子申请兑换，家长确认兑换后扣减积分并标记已兑换。
+- 愿望兑换扣减积分使用事务和流水唯一约束，避免同一愿望重复扣减。
+- 新增 `IncentiveService` 单测，覆盖积分账户权限、孩子跨账号访问拦截、积分不足兑换拦截和愿望审核不改原文。
+- 已同步更新 `docs/api.md`、`docs/documentation.md` 和 OpenAPI 规范。
+
+## 阶段 1-2 前端验证
 
 前端说明文档：
 
@@ -199,9 +247,12 @@ pnpm build
 - `http://localhost:3000`：首页和阶段说明。
 - `http://localhost:3000/login`：用户名密码登录页。
 - `http://localhost:3000/parent`：家长今日看板，需先用家长账号登录。
+- `http://localhost:3000/parent/wishes`：家长愿望管理页，需先用家长账号登录。
 - `http://localhost:3000/parent/tasks/new`：创建任务表单，需先用家长账号登录。
 - `http://localhost:3000/parent/tasks/<taskId>`：家长任务详情和审核页，需先用家长账号登录。
 - `http://localhost:3000/child`：孩子今日任务页，需先用孩子账号登录。
+- `http://localhost:3000/child/wishes`：孩子心愿清单页，需先用孩子账号登录。
+- `http://localhost:3000/child/wishes/new`：孩子提交新心愿页，需先用孩子账号登录。
 - `http://localhost:3000/child/tasks/<taskId>/check-in`：孩子打卡页，需先用孩子账号登录。
 - `http://localhost:3000/child/tasks/<taskId>/result`：提交结果页，需先用孩子账号登录。
 

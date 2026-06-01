@@ -12,7 +12,8 @@ export const createTaskSchema = z.object({
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   dueTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   needPhoto: z.boolean().default(true),
-  needAiCheck: z.boolean().default(false)
+  needAiCheck: z.boolean().default(false),
+  rewardPoints: z.number().int().min(0).max(999).default(0)
 });
 
 export const updateTaskSchema = createTaskSchema

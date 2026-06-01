@@ -23,6 +23,12 @@ export function HeaderNav() {
         >
           {user.role === "parent" ? "家长端" : "孩子端"}
         </Link>
+        <Link
+          href={user.role === "parent" ? "/parent/wishes" : "/child/wishes"}
+          className="rounded-pill px-3 py-2 hover:bg-surface-card hover:text-ink transition-colors"
+        >
+          心愿单
+        </Link>
         <span className="hidden text-body-sm text-ink sm:inline">{user.nickname}</span>
         <span className="rounded-full bg-brand-pink/15 px-3 py-1 text-caption font-medium text-ink">
           {user.role === "parent" ? "家长" : "孩子"}

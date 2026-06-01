@@ -16,6 +16,7 @@ type TaskRow = RowDataPacket & {
   due_time: string | null;
   need_photo: 0 | 1;
   need_ai_check: 0 | 1;
+  reward_points: number;
   status: StudyTask["status"];
   created_at: string;
   updated_at: string;
@@ -155,11 +156,11 @@ export class TaskRepository {
       `insert into study_task (
          id, family_id, child_user_id, creator_user_id, subject, task_type,
          title, description, due_date, due_time, need_photo, need_ai_check,
-         status, created_at, updated_at
+         reward_points, status, created_at, updated_at
        ) values (
          :id, :familyId, :childUserId, :creatorUserId, :subject, :taskType,
          :title, :description, :dueDate, :dueTime, :needPhoto, :needAiCheck,
-         :status, :createdAt, :updatedAt
+         :rewardPoints, :status, :createdAt, :updatedAt
        )`,
       {
         id: task.id,
@@ -174,6 +175,7 @@ export class TaskRepository {
         dueTime: task.dueTime ?? null,
         needPhoto: task.needPhoto,
         needAiCheck: task.needAiCheck,
+        rewardPoints: task.rewardPoints,
         status: task.status,
         createdAt: now.mysql,
         updatedAt: now.mysql
@@ -188,7 +190,15 @@ export class TaskRepository {
     patch: Partial<
       Pick<
         StudyTask,
-        "subject" | "taskType" | "title" | "description" | "dueDate" | "dueTime" | "needPhoto" | "needAiCheck"
+        | "subject"
+        | "taskType"
+        | "title"
+        | "description"
+        | "dueDate"
+        | "dueTime"
+        | "needPhoto"
+        | "needAiCheck"
+        | "rewardPoints"
       >
     >
   ) {
@@ -215,6 +225,7 @@ export class TaskRepository {
            due_time = :dueTime,
            need_photo = :needPhoto,
            need_ai_check = :needAiCheck,
+           reward_points = :rewardPoints,
            updated_at = :updatedAt
        where id = :taskId and deleted_at is null`,
       {
@@ -227,6 +238,7 @@ export class TaskRepository {
         dueTime: nextTask.dueTime ?? null,
         needPhoto: nextTask.needPhoto,
         needAiCheck: nextTask.needAiCheck,
+        rewardPoints: nextTask.rewardPoints,
         updatedAt
       }
     );
@@ -436,6 +448,7 @@ function mapTask(row: TaskRow): StudyTask {
     dueTime: row.due_time ?? undefined,
     needPhoto: Boolean(row.need_photo),
     needAiCheck: Boolean(row.need_ai_check),
+    rewardPoints: row.reward_points,
     status: row.status,
     createdAt: toIsoDateTime(row.created_at),
     updatedAt: toIsoDateTime(row.updated_at)

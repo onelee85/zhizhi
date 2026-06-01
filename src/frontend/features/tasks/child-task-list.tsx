@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { AppButtonLink } from "@/components/ui/button";
 import { AppCard, AppCardTitle } from "@/components/ui/card";
 import { AppTabs } from "@/components/ui/tabs";
 import { ApiError, getTodayTasks } from "@/features/api/client";
@@ -74,9 +75,14 @@ export function ChildTaskList() {
               选一个任务出发，完成后上传照片，让家长看到你的进度。
             </p>
           </div>
-          <div className="rounded-[24px] bg-[#f7cd67] px-5 py-4 text-center text-[#725d42] shadow-[inset_0_-5px_0_rgba(114,93,66,0.12)]">
-            <p className="text-caption font-semibold">任务数</p>
-            <p className="mt-1 text-display-sm tracking-normal">{isLoading ? "-" : visibleTasks.length}</p>
+          <div className="grid gap-2">
+            <div className="rounded-[24px] bg-[#f7cd67] px-5 py-4 text-center text-[#725d42] shadow-[inset_0_-5px_0_rgba(114,93,66,0.12)]">
+              <p className="text-caption font-semibold">任务数</p>
+              <p className="mt-1 text-display-sm tracking-normal">{isLoading ? "-" : visibleTasks.length}</p>
+            </div>
+            <AppButtonLink href="/child/wishes" variant="secondary" className="w-full">
+              我的心愿
+            </AppButtonLink>
           </div>
         </div>
       </div>
@@ -122,6 +128,7 @@ export function ChildTaskList() {
                     <Badge>{task.subject}</Badge>
                     <Badge tone={statusTone[task.status]}>{statusLabel[task.status]}</Badge>
                     {isOverdueIncomplete(task) ? <Badge tone="danger">逾期未完成</Badge> : null}
+                    {task.rewardPoints ? <Badge tone="success">+{task.rewardPoints} 积分</Badge> : null}
                   </div>
                   <h2 className="mt-3 text-title-md text-ink">{task.title}</h2>
                   <p className="mt-1 line-clamp-2 text-body-sm text-muted">{task.description}</p>

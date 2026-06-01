@@ -27,12 +27,18 @@ export function TaskForm({ task }: { task?: StudyTask }) {
   const [dueTime, setDueTime] = useState(task?.dueTime ?? "20:30");
   const [needPhoto, setNeedPhoto] = useState(task?.needPhoto ?? true);
   const [needAiCheck, setNeedAiCheck] = useState(task?.needAiCheck ?? false);
+  const [rewardPoints, setRewardPoints] = useState(String(task?.rewardPoints ?? 0));
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const parsedRewardPoints = Number.parseInt(rewardPoints || "0", 10);
   const canSubmit = useMemo(
-    () => Boolean(childUserId && title.trim() && description.trim() && dueDate),
-    [childUserId, description, dueDate, title]
+    () =>
+      Boolean(childUserId && title.trim() && description.trim() && dueDate) &&
+      Number.isInteger(parsedRewardPoints) &&
+      parsedRewardPoints >= 0 &&
+      parsedRewardPoints <= 999,
+    [childUserId, description, dueDate, parsedRewardPoints, title]
   );
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -50,7 +56,8 @@ export function TaskForm({ task }: { task?: StudyTask }) {
           dueDate,
           dueTime: dueTime || undefined,
           needPhoto,
-          needAiCheck
+          needAiCheck,
+          rewardPoints: parsedRewardPoints
         });
         router.push(`/parent/tasks/${result.task.id}`);
       } else {
@@ -63,7 +70,8 @@ export function TaskForm({ task }: { task?: StudyTask }) {
           dueDate,
           dueTime: dueTime || undefined,
           needPhoto,
-          needAiCheck
+          needAiCheck,
+          rewardPoints: parsedRewardPoints
         });
         router.push(`/parent/tasks/${result.task.id}`);
       }
@@ -147,6 +155,17 @@ export function TaskForm({ task }: { task?: StudyTask }) {
               <input type="time" value={dueTime} onChange={(event) => setDueTime(event.target.value)} />
             </label>
           </div>
+          <label>
+            奖励积分
+            <input
+              type="number"
+              min={0}
+              max={999}
+              step={1}
+              value={rewardPoints}
+              onChange={(event) => setRewardPoints(event.target.value)}
+            />
+          </label>
           <div className="grid gap-3 rounded-lg bg-surface-soft p-4 text-body-sm text-muted">
             <label className="flex items-center gap-3">
               <input

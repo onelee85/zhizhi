@@ -3,7 +3,7 @@ export const openApiSpec = {
   info: {
     title: "知知小助手后端 API",
     version: "0.1.0",
-    description: "阶段 1 后端接口，当前使用 MySQL 实现登录、任务、打卡提交和家长审核。"
+    description: "阶段 1-2 后端接口，当前使用 MySQL 实现登录、任务、打卡提交、家长审核、积分和愿望兑换。"
   },
   servers: [
     {
@@ -15,7 +15,9 @@ export const openApiSpec = {
     { name: "System", description: "系统接口" },
     { name: "Auth", description: "认证接口" },
     { name: "Parent", description: "家长端接口" },
-    { name: "Tasks", description: "任务接口" }
+    { name: "Tasks", description: "任务接口" },
+    { name: "Points", description: "积分接口" },
+    { name: "Wishes", description: "愿望接口" }
   ],
   components: {
     securitySchemes: {
@@ -73,6 +75,7 @@ export const openApiSpec = {
           dueTime: { type: "string", example: "20:30" },
           needPhoto: { type: "boolean" },
           needAiCheck: { type: "boolean" },
+          rewardPoints: { type: "integer", minimum: 0, maximum: 999 },
           status: {
             type: "string",
             enum: ["pending", "submitted", "ai_checking", "parent_review", "confirmed", "needs_resubmit"]
@@ -95,6 +98,7 @@ export const openApiSpec = {
           "dueDate",
           "needPhoto",
           "needAiCheck",
+          "rewardPoints",
           "status",
           "createdAt",
           "updatedAt"
@@ -111,7 +115,8 @@ export const openApiSpec = {
           dueDate: { type: "string", format: "date", example: "2026-05-26" },
           dueTime: { type: "string", example: "20:30" },
           needPhoto: { type: "boolean", default: true },
-          needAiCheck: { type: "boolean", default: false }
+          needAiCheck: { type: "boolean", default: false },
+          rewardPoints: { type: "integer", minimum: 0, maximum: 999, default: 0 }
         },
         required: ["childUserId", "subject", "taskType", "title", "description", "dueDate"]
       },
@@ -177,6 +182,83 @@ export const openApiSpec = {
               }
             }
           }
+        }
+      },
+      PointAccount: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          familyId: { type: "string" },
+          childUserId: { type: "string" },
+          balance: { type: "integer" },
+          totalEarned: { type: "integer" },
+          totalSpent: { type: "integer" },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" }
+        }
+      },
+      PointLedger: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          familyId: { type: "string" },
+          childUserId: { type: "string" },
+          changeAmount: { type: "integer" },
+          balanceAfter: { type: "integer" },
+          reason: { type: "string", enum: ["task_reward", "wish_redeem"] },
+          sourceType: { type: "string", enum: ["task_review", "wish"] },
+          sourceId: { type: "string" },
+          operatorUserId: { type: "string" },
+          createdAt: { type: "string", format: "date-time" }
+        }
+      },
+      Wish: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          familyId: { type: "string" },
+          childUserId: { type: "string" },
+          title: { type: "string" },
+          description: { type: "string" },
+          requiredPoints: { type: "integer" },
+          status: {
+            type: "string",
+            enum: ["pending_review", "approved", "rejected", "redeem_requested", "redeemed"]
+          },
+          parentUserId: { type: "string" },
+          rejectReason: { type: "string" },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+          redeemedAt: { type: "string", format: "date-time" }
+        }
+      },
+      CreateWishRequest: {
+        type: "object",
+        properties: {
+          title: { type: "string", minLength: 1, maxLength: 100 },
+          description: { type: "string", maxLength: 1000 }
+        },
+        required: ["title"]
+      },
+      UpdateWishRequest: {
+        type: "object",
+        properties: {
+          title: { type: "string", minLength: 1, maxLength: 100 },
+          description: { type: "string", maxLength: 1000 }
+        },
+        required: ["title"]
+      },
+      ApproveWishRequest: {
+        type: "object",
+        properties: {
+          requiredPoints: { type: "integer", minimum: 1, maximum: 99999 }
+        },
+        required: ["requiredPoints"]
+      },
+      RejectWishRequest: {
+        type: "object",
+        properties: {
+          rejectReason: { type: "string", maxLength: 500 }
         }
       }
     }
@@ -294,6 +376,177 @@ export const openApiSpec = {
         responses: {
           "200": { description: "今日看板" },
           "403": { description: "非家长用户" }
+        }
+      }
+    },
+    "/points/account": {
+      get: {
+        tags: ["Points"],
+        summary: "积分账户和流水",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "childUserId",
+            in: "query",
+            required: false,
+            schema: { type: "string" },
+            description: "家长必传；孩子端忽略并只返回自己的账户。"
+          }
+        ],
+        responses: {
+          "200": {
+            description: "积分账户和流水",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    account: { $ref: "#/components/schemas/PointAccount" },
+                    ledger: { type: "array", items: { $ref: "#/components/schemas/PointLedger" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wishes": {
+      get: {
+        tags: ["Wishes"],
+        summary: "愿望列表",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: "childUserId", in: "query", required: false, schema: { type: "string" } }
+        ],
+        responses: {
+          "200": { description: "愿望列表" }
+        }
+      },
+      post: {
+        tags: ["Wishes"],
+        summary: "孩子提交愿望",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/CreateWishRequest" }
+            }
+          }
+        },
+        responses: {
+          "201": { description: "愿望创建成功" },
+          "403": { description: "非孩子用户" }
+        }
+      }
+    },
+    "/wishes/{wishId}/approve": {
+      patch: {
+        tags: ["Wishes"],
+        summary: "家长设置愿望积分并通过",
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: "wishId", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ApproveWishRequest" }
+            }
+          }
+        },
+        responses: {
+          "200": { description: "审批成功" },
+          "409": { description: "愿望当前状态不可审批" }
+        }
+      }
+    },
+    "/wishes/{wishId}/reject": {
+      patch: {
+        tags: ["Wishes"],
+        summary: "家长驳回愿望",
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: "wishId", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/RejectWishRequest" }
+            }
+          }
+        },
+        responses: {
+          "200": { description: "驳回成功" },
+          "409": { description: "愿望当前状态不可驳回" }
+        }
+      }
+    },
+    "/wishes/{wishId}/redeem-requests": {
+      post: {
+        tags: ["Wishes"],
+        summary: "孩子申请兑换愿望",
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: "wishId", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          "200": { description: "兑换申请成功" },
+          "409": { description: "愿望不可兑换或积分不足" }
+        }
+      }
+    },
+    "/wishes/{wishId}/redeem-confirmations": {
+      post: {
+        tags: ["Wishes"],
+        summary: "家长确认兑换愿望",
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: "wishId", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          "200": { description: "兑换确认成功并扣减积分" },
+          "409": { description: "愿望当前状态不可确认或积分不足" }
+        }
+      }
+    },
+    "/wishes/{wishId}": {
+      get: {
+        tags: ["Wishes"],
+        summary: "获取单个愿望",
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: "wishId", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          "200": { description: "愿望详情" },
+          "403": { description: "愿望不在当前家庭或孩子范围内" },
+          "404": { description: "愿望不存在" }
+        }
+      },
+      patch: {
+        tags: ["Wishes"],
+        summary: "孩子修改被驳回的心愿",
+        description: "仅心愿所有者孩子可调用；仅 `rejected` 状态可编辑；保存后状态重置为 `pending_review`，并清空所需积分、家长记录和驳回原因。",
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: "wishId", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/UpdateWishRequest" }
+            }
+          }
+        },
+        responses: {
+          "200": { description: "修改成功" },
+          "403": { description: "非孩子用户或心愿不在该孩子下" },
+          "409": { description: "仅 `rejected` 状态的心愿可被修改" }
+        }
+      },
+      delete: {
+        tags: ["Wishes"],
+        summary: "孩子删除被驳回的心愿",
+        description: "仅心愿所有者孩子可调用；仅 `rejected` 状态可删除；物理删除该心愿记录。",
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: "wishId", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          "204": { description: "删除成功" },
+          "403": { description: "非孩子用户或心愿不在该孩子下" },
+          "409": { description: "仅 `rejected` 状态的心愿可被删除" }
         }
       }
     },

@@ -108,7 +108,10 @@ export function ParentDashboardView() {
             轻量查看家庭任务进度，快速定位待确认、需补充和已完成的任务。
           </p>
         </div>
-        <AppButtonLink href="/parent/tasks/new">创建任务</AppButtonLink>
+        <div className="flex flex-wrap gap-2 md:justify-end">
+          <AppButtonLink href="/parent/wishes" variant="secondary">愿望管理</AppButtonLink>
+          <AppButtonLink href="/parent/tasks/new">创建任务</AppButtonLink>
+        </div>
       </div>
 
       {error ? <AppCard className="text-body-sm text-brand-coral">{error}</AppCard> : null}
@@ -188,6 +191,7 @@ export function ParentDashboardView() {
                   <Badge>{task.subject}</Badge>
                   <Badge tone={statusTone[task.status]}>{statusLabel[task.status]}</Badge>
                   {getImageCount(task) > 0 ? <Badge tone="lavender">{getImageCount(task)} 张图</Badge> : null}
+                  {task.rewardPoints ? <Badge tone="success">+{task.rewardPoints} 积分</Badge> : null}
                 </div>
                 <h2 className="mt-3 text-title-md text-ink">{task.title}</h2>
                 <p className="mt-1 max-w-3xl text-body-sm text-muted">{task.description}</p>

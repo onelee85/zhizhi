@@ -12,6 +12,8 @@
 - [认证接口](#认证接口)
 - [家长端接口](#家长端接口)
 - [任务接口](#任务接口)
+- [积分接口](#积分接口)
+- [愿望接口](#愿望接口)
 
 ---
 
@@ -221,7 +223,8 @@ Content-Type: application/json
   "dueDate": "2026-05-26",
   "dueTime": "19:00",
   "needPhoto": true,
-  "needAiCheck": false
+  "needAiCheck": false,
+  "rewardPoints": 10
 }
 ```
 
@@ -232,6 +235,7 @@ Content-Type: application/json
 - `dueTime`: 截止时间，可选，格式 HH:MM
 - `needPhoto`: 是否需要上传照片，默认 true
 - `needAiCheck`: 是否需要 AI 检查，默认 false
+- `rewardPoints`: 任务奖励积分，默认 0；仅家长确认任务通过后发放
 
 **响应 (201):**
 ```json
@@ -249,6 +253,7 @@ Content-Type: application/json
     "dueTime": "19:00",
     "needPhoto": true,
     "needAiCheck": false,
+    "rewardPoints": 10,
     "status": "pending",
     "createdAt": "2026-05-26T10:30:00.000Z",
     "updatedAt": "2026-05-26T10:30:00.000Z",
@@ -338,7 +343,8 @@ Content-Type: application/json
   "dueDate": "2026-05-27",
   "dueTime": "21:00",
   "needPhoto": true,
-  "needAiCheck": false
+  "needAiCheck": false,
+  "rewardPoints": 12
 }
 ```
 
@@ -450,7 +456,7 @@ Content-Type: multipart/form-data
 
 ### POST /tasks/:taskId/reviews - 审核任务 (家长)
 
-家长审核孩子提交的任务。任务必须已有孩子提交，并处于 `submitted`、`ai_checking` 或 `parent_review` 状态。
+家长审核孩子提交的任务。任务必须已有孩子提交，并处于 `submitted`、`ai_checking` 或 `parent_review` 状态。审核结果为 `pass` 时，系统按任务 `rewardPoints` 发放积分；同一任务只会发放一次。
 
 **请求头:**
 ```
@@ -482,14 +488,210 @@ Content-Type: application/json
     "id": "task-1",
     "status": "confirmed",
     "...": "..."
+  },
+  "pointLedger": {
+    "reason": "task_reward",
+    "changeAmount": 10,
+    "sourceType": "task_review",
+    "sourceId": "task-1"
+  }
+}
+```
+
+如果任务奖励积分为 0，或本次审核未通过，`pointLedger` 为 `null`。
+
+**错误响应:**
+
+- `409 TASK_NOT_REVIEWABLE`: 任务尚未提交或当前状态不可审核。
+- `409 SUBMISSION_REQUIRED`: 任务状态进入审核链路，但未找到对应提交记录。
+
+---
+
+## 积分接口
+
+### GET /points/account - 获取积分账户和流水
+
+孩子获取自己的积分账户；家长通过 `childUserId` 查询家庭内指定孩子的积分账户。
+
+**查询参数:**
+
+| 参数 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `childUserId` | string | 家长必填 | 孩子端无需传，传入其他孩子 ID 会被拒绝。 |
+
+**响应 (200):**
+```json
+{
+  "account": {
+    "id": "point-account-child-1",
+    "familyId": "family-1",
+    "childUserId": "child-1",
+    "balance": 18,
+    "totalEarned": 18,
+    "totalSpent": 0,
+    "createdAt": "2026-06-01T10:00:00.000Z",
+    "updatedAt": "2026-06-01T10:00:00.000Z"
+  },
+  "ledger": [
+    {
+      "id": "ledger-1",
+      "familyId": "family-1",
+      "childUserId": "child-1",
+      "changeAmount": 10,
+      "balanceAfter": 18,
+      "reason": "task_reward",
+      "sourceType": "task_review",
+      "sourceId": "task-1",
+      "operatorUserId": "parent-1",
+      "createdAt": "2026-06-01T10:00:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+## 愿望接口
+
+### GET /wishes - 获取愿望列表
+
+孩子只返回自己的愿望；家长返回当前家庭愿望，可通过 `childUserId` 过滤。
+
+### POST /wishes - 孩子提交愿望
+
+**权限要求**: 需要孩子角色
+
+**请求体:**
+```json
+{
+  "title": "周末去科技馆",
+  "description": "想看机器人展"
+}
+```
+
+**响应 (201):**
+```json
+{
+  "wish": {
+    "id": "wish-1",
+    "familyId": "family-1",
+    "childUserId": "child-1",
+    "title": "周末去科技馆",
+    "description": "想看机器人展",
+    "status": "pending_review",
+    "createdAt": "2026-06-01T10:00:00.000Z",
+    "updatedAt": "2026-06-01T10:00:00.000Z"
+  }
+}
+```
+
+### GET /wishes/:wishId - 获取单个愿望
+
+获取指定愿望的详情。返回内容会校验家庭范围；孩子端只能看到自己的愿望。
+
+**响应 (200):**
+```json
+{
+  "wish": {
+    "id": "wish-1",
+    "familyId": "family-1",
+    "childUserId": "child-1",
+    "title": "周末去科技馆",
+    "description": "想看机器人展",
+    "status": "rejected",
+    "rejectReason": "本周先完成读书计划",
+    "createdAt": "2026-06-01T10:00:00.000Z",
+    "updatedAt": "2026-06-01T10:30:00.000Z"
   }
 }
 ```
 
 **错误响应:**
 
-- `409 TASK_NOT_REVIEWABLE`: 任务尚未提交或当前状态不可审核。
-- `409 SUBMISSION_REQUIRED`: 任务状态进入审核链路，但未找到对应提交记录。
+- `403 FORBIDDEN`: 愿望不在当前家庭或孩子范围内。
+- `404 NOT_FOUND`: 愿望不存在。
+
+### PATCH /wishes/:wishId - 孩子修改被驳回的心愿
+
+仅心愿所有者孩子可调用；仅 `rejected` 状态可编辑。保存后状态重置为 `pending_review`，所需积分、家长审核记录和驳回原因会被清空。
+
+**权限要求**: 需要孩子角色
+
+**路径参数:**
+- `wishId`: 愿望 ID
+
+**请求体:**
+```json
+{
+  "title": "周末去科技馆",
+  "description": "想看机器人展"
+}
+```
+
+**响应 (200):**
+```json
+{
+  "wish": {
+    "id": "wish-1",
+    "familyId": "family-1",
+    "childUserId": "child-1",
+    "title": "周末去科技馆",
+    "description": "想看机器人展",
+    "status": "pending_review",
+    "createdAt": "2026-06-01T10:00:00.000Z",
+    "updatedAt": "2026-06-01T10:35:00.000Z"
+  }
+}
+```
+
+**错误响应:**
+
+- `403 FORBIDDEN`: 非孩子用户或心愿不在该孩子下。
+- `409 WISH_NOT_EDITABLE`: 仅 `rejected` 状态的心愿可被修改。
+
+### DELETE /wishes/:wishId - 孩子删除被驳回的心愿
+
+仅心愿所有者孩子可调用；仅 `rejected` 状态可删除。系统物理删除该心愿记录。
+
+**权限要求**: 需要孩子角色
+
+**路径参数:**
+- `wishId`: 愿望 ID
+
+**响应 (204):** 无内容
+
+**错误响应:**
+
+- `403 FORBIDDEN`: 非孩子用户或心愿不在该孩子下。
+- `409 WISH_NOT_DELETABLE`: 仅 `rejected` 状态的心愿可被删除。
+
+### PATCH /wishes/:wishId/approve - 家长设置积分并通过
+
+家长只能设置所需积分，不能修改孩子提交的标题和说明。
+
+**请求体:**
+```json
+{
+  "requiredPoints": 50
+}
+```
+
+### PATCH /wishes/:wishId/reject - 家长驳回愿望
+
+**请求体:**
+```json
+{
+  "rejectReason": "本周先完成读书计划"
+}
+```
+
+### POST /wishes/:wishId/redeem-requests - 孩子申请兑换
+
+愿望必须处于 `approved`，且孩子当前积分不少于 `requiredPoints`。该接口只提交申请，不扣减积分。
+
+### POST /wishes/:wishId/redeem-confirmations - 家长确认兑换
+
+愿望必须处于 `redeem_requested`。确认成功后系统扣减积分，写入 `point_ledger`，并将愿望标记为 `redeemed`。
 
 ---
 

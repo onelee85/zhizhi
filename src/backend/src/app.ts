@@ -8,6 +8,8 @@ import { swaggerUiHtml } from "./docs/swagger-ui.js";
 import { saveUploadedFile, sendLocalUploadedFile } from "./server/uploads.js";
 import { TaskRepository } from "./features/tasks/task.repository.js";
 import { TaskService } from "./features/tasks/task.service.js";
+import { IncentiveRepository } from "./features/incentives/incentive.repository.js";
+import { IncentiveService } from "./features/incentives/incentive.service.js";
 import {
   createTaskSchema,
   loginSchema,
@@ -15,10 +17,18 @@ import {
   submitTaskSchema,
   updateTaskSchema
 } from "./features/tasks/task.schemas.js";
+import {
+  approveWishSchema,
+  createWishSchema,
+  rejectWishSchema,
+  updateWishSchema
+} from "./features/incentives/incentive.schemas.js";
 
 const router = new Router();
 const taskRepository = new TaskRepository(pool);
-const taskService = new TaskService(taskRepository);
+const incentiveRepository = new IncentiveRepository(pool);
+const incentiveService = new IncentiveService(incentiveRepository);
+const taskService = new TaskService(taskRepository, incentiveService);
 
 router.add("GET", "/health", ({ response }) => {
   sendJson(response, 200, {
@@ -59,6 +69,75 @@ router.add("POST", "/uploads/photos", async ({ request, response }) => {
 router.add("GET", "/parent/dashboard", async ({ request, response }) => {
   const parent = await requireRole(request.headers.authorization, "parent");
   sendJson(response, 200, await taskService.getParentDashboard(parent));
+});
+
+router.add("GET", "/points/account", async ({ request, response, query }) => {
+  const user = await requireUser(request.headers.authorization);
+  sendJson(response, 200, await incentiveService.getPointAccount(user, query.get("childUserId") ?? undefined));
+});
+
+router.add("GET", "/wishes", async ({ request, response, query }) => {
+  const user = await requireUser(request.headers.authorization);
+  sendJson(response, 200, {
+    wishes: await incentiveService.listWishes(user, query.get("childUserId") ?? undefined)
+  });
+});
+
+router.add("POST", "/wishes", async ({ request, response }) => {
+  const child = await requireRole(request.headers.authorization, "child");
+  const body = createWishSchema.parse(await readJson(request));
+  sendJson(response, 201, {
+    wish: await incentiveService.createWish(child, body)
+  });
+});
+
+router.add("GET", "/wishes/:wishId", async ({ request, response, params }) => {
+  const user = await requireUser(request.headers.authorization);
+  sendJson(response, 200, {
+    wish: await incentiveService.getWish(user, params.wishId)
+  });
+});
+
+router.add("PATCH", "/wishes/:wishId", async ({ request, response, params }) => {
+  const child = await requireRole(request.headers.authorization, "child");
+  const body = updateWishSchema.parse(await readJson(request));
+  sendJson(response, 200, {
+    wish: await incentiveService.updateWish(child, params.wishId, body)
+  });
+});
+
+router.add("DELETE", "/wishes/:wishId", async ({ request, response, params }) => {
+  const child = await requireRole(request.headers.authorization, "child");
+  await incentiveService.deleteWish(child, params.wishId);
+  sendJson(response, 204, null);
+});
+
+router.add("PATCH", "/wishes/:wishId/approve", async ({ request, response, params }) => {
+  const parent = await requireRole(request.headers.authorization, "parent");
+  const body = approveWishSchema.parse(await readJson(request));
+  sendJson(response, 200, {
+    wish: await incentiveService.approveWish(parent, params.wishId, body)
+  });
+});
+
+router.add("PATCH", "/wishes/:wishId/reject", async ({ request, response, params }) => {
+  const parent = await requireRole(request.headers.authorization, "parent");
+  const body = rejectWishSchema.parse(await readJson(request));
+  sendJson(response, 200, {
+    wish: await incentiveService.rejectWish(parent, params.wishId, body)
+  });
+});
+
+router.add("POST", "/wishes/:wishId/redeem-requests", async ({ request, response, params }) => {
+  const child = await requireRole(request.headers.authorization, "child");
+  sendJson(response, 200, {
+    wish: await incentiveService.requestRedeem(child, params.wishId)
+  });
+});
+
+router.add("POST", "/wishes/:wishId/redeem-confirmations", async ({ request, response, params }) => {
+  const parent = await requireRole(request.headers.authorization, "parent");
+  sendJson(response, 200, await incentiveService.confirmRedeem(parent, params.wishId));
 });
 
 router.add("GET", "/tasks/today", async ({ request, response, query }) => {

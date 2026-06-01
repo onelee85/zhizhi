@@ -118,6 +118,7 @@ export function ParentTaskDetail({ taskId }: { taskId: string }) {
         <div className="flex flex-wrap items-center gap-2">
           <Badge>{task.subject}</Badge>
           <Badge tone={statusTone[task.status]}>{statusLabel[task.status]}</Badge>
+          {task.rewardPoints ? <Badge tone="success">+{task.rewardPoints} 积分</Badge> : null}
         </div>
         <h1 className="mt-4 text-display-md text-ink">{task.title}</h1>
         <p className="mt-3 max-w-3xl text-body-md text-body">{task.description}</p>
@@ -140,6 +141,10 @@ export function ParentTaskDetail({ taskId }: { taskId: string }) {
             <div className="flex justify-between gap-4">
               <dt className="text-muted">截止时间</dt>
               <dd className="font-medium text-ink">{task.dueTime ? task.dueTime : task.dueDate ?? "今日"}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted">奖励积分</dt>
+              <dd className="font-medium text-ink">{task.rewardPoints ?? 0}</dd>
             </div>
           </dl>
           <div className="mt-5 grid grid-cols-3 gap-3">
