@@ -27,8 +27,9 @@ export const submitTaskSchema = z.object({
   completed: z.literal(true),
   imageUrls: z
     .array(z.string().regex(/^\/uploads\/photos\/\d+_[a-f0-9]{12}\.(jpg|jpeg|png|webp)$/))
-    .min(1)
-    .max(9),
+    .max(9)
+    .optional()
+    .default([]),
   childNote: z.string().max(500).optional()
 });
 

@@ -163,7 +163,7 @@ export async function createTask(input: CreateTaskInput) {
 
 export async function submitTask(
   taskId: string,
-  input: { completed: true; imageUrls: string[]; childNote?: string }
+  input: { completed: true; imageUrls?: string[]; childNote?: string }
 ) {
   return request<{ task: StudyTask }>(`/tasks/${encodeURIComponent(taskId)}/submissions`, {
     method: "POST",

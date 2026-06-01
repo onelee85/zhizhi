@@ -163,6 +163,11 @@
 - 前端 API 客户端新增 `getWish`、`updateWish` 和 `deleteWish` 方法。
 - 新增 `src/frontend/features/incentives/child-wish-edit-form.tsx` 和 `src/frontend/app/child/wishes/[wishId]/edit/page.tsx`：复用 `/child/wishes/new` 表单结构，预填心愿标题、说明和驳回原因；保存成功后返回 `/child/wishes`。
 - `ChildWishlist` 在状态为 `rejected` 的心愿上展示“修改心愿”和“删除心愿”操作；删除前打开 `AppConfirmModal` 确认，确认成功后从列表移除。
+- 修复 `needPhoto=false` 任务仍强制要求至少 1 张图片的 bug。
+- 后端 `submitTaskSchema` 将 `imageUrls` 改为可选且不再强制 `min(1)`；`TaskService.submitTask` 改为根据任务的 `needPhoto` 决定是否要求图片，`needPhoto=true` 但未提供图片时返回 `400 VALIDATION_ERROR`。
+- 前端孩子打卡页 `CheckInForm` 在 `needPhoto=false` 时不再展示图片上传控件，改为提示“这个任务不需要上传图片”，提交逻辑仅在 `needPhoto=true` 时校验 `photos.length === 0`。
+- 前端 API 客户端 `submitTask` 的 `imageUrls` 类型改为 `string[] | undefined`。
+- 同步更新 `docs/api.md` 中 `/tasks/:taskId/submissions` 的字段说明与错误响应，更新 OpenAPI 规范。
 
 ## 当前状态
 

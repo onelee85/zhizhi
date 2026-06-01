@@ -96,13 +96,18 @@ export class TaskService {
       throw new AppError(409, "TASK_NOT_SUBMITTABLE", "Task cannot be submitted in current status");
     }
 
+    const imageUrls = task.needPhoto ? input.imageUrls : [];
+    if (task.needPhoto && imageUrls.length === 0) {
+      throw new AppError(400, "VALIDATION_ERROR", "该任务需要至少上传 1 张图片");
+    }
+
     const submission = await this.repository.createSubmission({
       taskId,
       childUserId: child.id,
       status: "submitted",
       childNote: input.childNote
     });
-    const images = await this.repository.createImages(submission.id, input.imageUrls);
+    const images = await this.repository.createImages(submission.id, imageUrls);
     const nextStatus = task.needAiCheck ? "ai_checking" : "parent_review";
     const updatedTask = await this.repository.setTaskStatus(taskId, nextStatus);
 

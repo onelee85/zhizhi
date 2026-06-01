@@ -407,8 +407,11 @@ Content-Type: application/json
 
 **字段说明:**
 - `completed`: 必须为 true
-- `imageUrls`: 本地照片访问路径数组，1-9 张；路径来自 `POST /uploads/photos` 返回值，格式为 `/uploads/photos/<timestamp>_<random>.<ext>`
+- `imageUrls`: 本地照片访问路径数组，最多 9 张；路径来自 `POST /uploads/photos` 返回值，格式为 `/uploads/photos/<timestamp>_<random>.<ext>`。当任务 `needPhoto=true` 时至少 1 张；当任务 `needPhoto=false` 时可省略或传空数组。
 - `childNote`: 孩子备注，可选，最多 500 字符
+
+**错误响应:**
+- `400 VALIDATION_ERROR`: 任务 `needPhoto=true` 但未提供至少 1 张图片。
 
 **响应 (201):**
 ```json

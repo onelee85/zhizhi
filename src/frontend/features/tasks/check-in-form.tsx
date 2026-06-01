@@ -52,12 +52,17 @@ export function CheckInForm({ taskId }: { taskId: string }) {
     event.preventDefault();
     setError("");
 
+    if (!task) {
+      setError("任务不存在");
+      return;
+    }
+
     if (!completed) {
       setError("请先勾选已完成");
       return;
     }
 
-    if (photos.length === 0) {
+    if (task.needPhoto && photos.length === 0) {
       setError("请至少上传 1 张图片");
       return;
     }
@@ -137,32 +142,40 @@ export function CheckInForm({ taskId }: { taskId: string }) {
             />
             我已完成
           </label>
-          <label>
-            上传图片
-            <input
-              className="cursor-pointer"
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              multiple
-              onChange={(event) => handlePhotoChange(event.target.files)}
-            />
-            <span className="mt-2 block text-caption text-muted-soft">
-              支持 jpg、jpeg、png、webp，单张不超过 5MB，最多 9 张
-            </span>
-          </label>
-          {photos.length > 0 ? (
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-              {photos.map((photo) => (
-                <div
-                  key={`${photo.name}-${photo.lastModified}`}
-                  className="rounded-[20px] border-2 border-[#eadfc3] bg-[#fffdf8] p-3"
-                >
-                  <p className="truncate text-body-sm font-medium text-ink">{photo.name}</p>
-                  <p className="mt-1 text-caption text-muted-soft">{(photo.size / 1024 / 1024).toFixed(2)} MB</p>
+          {task.needPhoto ? (
+            <>
+              <label>
+                上传图片
+                <input
+                  className="cursor-pointer"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  onChange={(event) => handlePhotoChange(event.target.files)}
+                />
+                <span className="mt-2 block text-caption text-muted-soft">
+                  支持 jpg、jpeg、png、webp，单张不超过 5MB，最多 9 张
+                </span>
+              </label>
+              {photos.length > 0 ? (
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                  {photos.map((photo) => (
+                    <div
+                      key={`${photo.name}-${photo.lastModified}`}
+                      className="rounded-[20px] border-2 border-[#eadfc3] bg-[#fffdf8] p-3"
+                    >
+                      <p className="truncate text-body-sm font-medium text-ink">{photo.name}</p>
+                      <p className="mt-1 text-caption text-muted-soft">{(photo.size / 1024 / 1024).toFixed(2)} MB</p>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          ) : null}
+              ) : null}
+            </>
+          ) : (
+            <p className="rounded-[22px] bg-[#f7f0d8] p-4 text-body-sm text-muted">
+              这个任务不需要上传图片，提交后直接进入家长审核。
+            </p>
+          )}
           <label>
             孩子备注
             <textarea

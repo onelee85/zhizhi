@@ -126,17 +126,17 @@ export const openApiSpec = {
           completed: { type: "boolean", const: true },
           imageUrls: {
             type: "array",
-            minItems: 1,
             maxItems: 9,
             items: {
               type: "string",
               pattern: "^/uploads/photos/\\d+_[a-f0-9]{12}\\.(jpg|jpeg|png|webp)$",
               example: "/uploads/photos/1718000000000_a8f3d2c4b5e6.jpg"
-            }
+            },
+            description: "当任务 needPhoto=true 时至少 1 张，最多 9 张；needPhoto=false 时可省略或传空数组。"
           },
           childNote: { type: "string", maxLength: 500 }
         },
-        required: ["completed", "imageUrls"]
+        required: ["completed"]
       },
       UploadPhotoResponse: {
         type: "object",
