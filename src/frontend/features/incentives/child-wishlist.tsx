@@ -115,20 +115,84 @@ export function ChildWishlist() {
       {error ? <AppCard className="text-body-sm text-brand-coral">{error}</AppCard> : null}
       {message ? <AppCard variant="mint" className="text-body-sm text-white">{message}</AppCard> : null}
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.8fr)]">
-        <AppCard>
-          <div className="grid gap-4">
-            <AppCardTitle>提交新心愿</AppCardTitle>
-            <p className="text-body-sm text-muted">
-              写下想实现的小目标，提交后由家长设置所需积分。
-            </p>
-            <AppButtonLink href="/child/wishes/new" className="w-fit">
-              去提交心愿
-            </AppButtonLink>
-          </div>
-        </AppCard>
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="grid gap-5">
+          <AppCard className="!p-4 md:!p-5">
+            <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
+              <div>
+                <AppCardTitle className="text-title-sm">提交新心愿</AppCardTitle>
+                <p className="mt-1 text-body-sm text-muted">
+                  写下想实现的小目标，家长会设置所需积分。
+                </p>
+              </div>
+              <AppButtonLink href="/child/wishes/new" className="w-full md:w-fit">
+                去提交
+              </AppButtonLink>
+            </div>
+          </AppCard>
 
-        <AppCard className="overflow-hidden">
+          <AppCard className="p-0 md:p-0">
+            <div className="px-5 pt-5 md:px-6 md:pt-6">
+              <AppCardTitle>心愿列表</AppCardTitle>
+            </div>
+            <div className="mt-4 grid gap-3 px-4 pb-4 md:px-5 md:pb-5">
+              {wishes.map((wish) => {
+                const requiredPoints = wish.requiredPoints ?? 0;
+                const canRedeem = wish.status === "approved" && balance >= requiredPoints;
+
+                return (
+                  <div key={wish.id} className="grid gap-4 rounded-[24px] border-2 border-[#eadfc3] bg-[#fffdf8] p-4 md:grid-cols-[1fr_auto]">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge tone={wishStatusTone[wish.status]}>{wishStatusLabel[wish.status]}</Badge>
+                        {wish.requiredPoints ? <Badge tone="lavender">{wish.requiredPoints} 积分</Badge> : null}
+                      </div>
+                      <h2 className="mt-3 text-title-md text-ink">{wish.title}</h2>
+                      {wish.description ? <p className="mt-1 text-body-sm text-muted">{wish.description}</p> : null}
+                      {wish.rejectReason ? <p className="mt-2 text-caption text-brand-coral">驳回原因：{wish.rejectReason}</p> : null}
+                    </div>
+                    {wish.status === "approved" ? (
+                      <div className="flex items-center md:justify-end">
+                        <AppButton
+                          type="button"
+                          disabled={!canRedeem || actionWishId === wish.id}
+                          onClick={() => void handleRedeem(wish)}
+                        >
+                          {actionWishId === wish.id ? "申请中..." : canRedeem ? "申请兑换" : "积分不足"}
+                        </AppButton>
+                      </div>
+                    ) : null}
+                    {wish.status === "rejected" ? (
+                      <div className="flex flex-wrap items-center gap-3 md:justify-end">
+                        <AppButtonLink
+                          href={`/child/wishes/${encodeURIComponent(wish.id)}/edit`}
+                          variant="secondary"
+                        >
+                          修改心愿
+                        </AppButtonLink>
+                        <AppButton
+                          type="button"
+                          variant="danger"
+                          disabled={actionWishId === wish.id}
+                          onClick={() => setDeleteTarget(wish)}
+                        >
+                          删除心愿
+                        </AppButton>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+              {!isLoading && wishes.length === 0 ? (
+                <p className="rounded-[22px] border-2 border-dashed border-[#eadfc3] bg-[#fffdf8] px-4 py-8 text-center text-body-sm text-muted">
+                  还没有提交心愿。
+                </p>
+              ) : null}
+            </div>
+          </AppCard>
+        </div>
+
+        <AppCard className="overflow-hidden lg:sticky lg:top-24">
           <AppCardTitle>积分流水</AppCardTitle>
           <div className="mt-4 grid gap-3">
             {ledger.slice(0, 5).map((item) => (
@@ -147,66 +211,6 @@ export function ChildWishlist() {
           </div>
         </AppCard>
       </div>
-
-      <AppCard className="p-0 md:p-0">
-        <div className="px-5 pt-5 md:px-6 md:pt-6">
-          <AppCardTitle>心愿列表</AppCardTitle>
-        </div>
-        <div className="mt-4 grid gap-3 px-4 pb-4 md:px-5 md:pb-5">
-          {wishes.map((wish) => {
-            const requiredPoints = wish.requiredPoints ?? 0;
-            const canRedeem = wish.status === "approved" && balance >= requiredPoints;
-
-            return (
-              <div key={wish.id} className="grid gap-4 rounded-[24px] border-2 border-[#eadfc3] bg-[#fffdf8] p-4 md:grid-cols-[1fr_auto]">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge tone={wishStatusTone[wish.status]}>{wishStatusLabel[wish.status]}</Badge>
-                    {wish.requiredPoints ? <Badge tone="lavender">{wish.requiredPoints} 积分</Badge> : null}
-                  </div>
-                  <h2 className="mt-3 text-title-md text-ink">{wish.title}</h2>
-                  {wish.description ? <p className="mt-1 text-body-sm text-muted">{wish.description}</p> : null}
-                  {wish.rejectReason ? <p className="mt-2 text-caption text-brand-coral">驳回原因：{wish.rejectReason}</p> : null}
-                </div>
-                {wish.status === "approved" ? (
-                  <div className="flex items-center md:justify-end">
-                    <AppButton
-                      type="button"
-                      disabled={!canRedeem || actionWishId === wish.id}
-                      onClick={() => void handleRedeem(wish)}
-                    >
-                      {actionWishId === wish.id ? "申请中..." : canRedeem ? "申请兑换" : "积分不足"}
-                    </AppButton>
-                  </div>
-                ) : null}
-                {wish.status === "rejected" ? (
-                  <div className="flex flex-wrap items-center gap-3 md:justify-end">
-                    <AppButtonLink
-                      href={`/child/wishes/${encodeURIComponent(wish.id)}/edit`}
-                      variant="secondary"
-                    >
-                      修改心愿
-                    </AppButtonLink>
-                    <AppButton
-                      type="button"
-                      variant="danger"
-                      disabled={actionWishId === wish.id}
-                      onClick={() => setDeleteTarget(wish)}
-                    >
-                      删除心愿
-                    </AppButton>
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
-          {!isLoading && wishes.length === 0 ? (
-            <p className="rounded-[22px] border-2 border-dashed border-[#eadfc3] bg-[#fffdf8] px-4 py-8 text-center text-body-sm text-muted">
-              还没有提交心愿。
-            </p>
-          ) : null}
-        </div>
-      </AppCard>
 
       <AppConfirmModal
         open={Boolean(deleteTarget)}

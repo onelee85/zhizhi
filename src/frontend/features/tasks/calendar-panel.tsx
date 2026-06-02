@@ -411,7 +411,9 @@ function getTaskHref(role: UserRole, task: StudyTask) {
     return `/parent/tasks/${task.id}?from=calendar`;
   }
 
-  return isChildCompleted(task) ? `/child/tasks/${task.id}/result` : `/child/tasks/${task.id}/check-in`;
+  return isChildCompleted(task)
+    ? `/child/tasks/${task.id}/result?from=calendar`
+    : `/child/tasks/${task.id}/check-in?from=calendar`;
 }
 
 function isChildCompleted(task: StudyTask) {

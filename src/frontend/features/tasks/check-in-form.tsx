@@ -12,7 +12,15 @@ import type { StudyTask } from "@/features/tasks/types";
 const MAX_PHOTO_SIZE = 5 * 1024 * 1024;
 const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
-export function CheckInForm({ taskId }: { taskId: string }) {
+export function CheckInForm({
+  taskId,
+  returnHref = "/child",
+  returnLabel = "返回任务清单"
+}: {
+  taskId: string;
+  returnHref?: string;
+  returnLabel?: string;
+}) {
   const router = useRouter();
   const [task, setTask] = useState<StudyTask | null>(null);
   const [completed, setCompleted] = useState(false);
@@ -21,6 +29,9 @@ export function CheckInForm({ taskId }: { taskId: string }) {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const resultHref = returnHref === "/child/calendar"
+    ? `/child/tasks/${taskId}/result?from=calendar`
+    : `/child/tasks/${taskId}/result`;
 
   useEffect(() => {
     let active = true;
@@ -75,7 +86,7 @@ export function CheckInForm({ taskId }: { taskId: string }) {
         imageUrls: uploadedPhotos.map((photo) => photo.url),
         childNote: childNote.trim() || undefined
       });
-      router.push(`/child/tasks/${taskId}/result`);
+      router.push(resultHref);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "提交打卡失败");
     } finally {
@@ -120,6 +131,13 @@ export function CheckInForm({ taskId }: { taskId: string }) {
 
   return (
     <div className="mx-auto grid max-w-lg gap-5">
+      <div className="flex">
+        <AppButtonLink href={returnHref} variant="ghost" className="gap-1.5 px-3 text-muted hover:text-ink">
+          <span aria-hidden className="text-body">←</span>
+          {returnLabel}
+        </AppButtonLink>
+      </div>
+
       <div className="rounded-[32px] bg-[#82d5bb] p-5 text-white shadow-[0_10px_0_rgba(114,93,66,0.08)] md:p-6">
         <div className="flex flex-wrap items-center gap-2">
           <Badge>{task.subject}</Badge>
@@ -191,7 +209,7 @@ export function CheckInForm({ taskId }: { taskId: string }) {
             <AppButton type="submit" loading={isSubmitting} disabled={isSubmitting}>
               {isSubmitting ? "上传并提交中..." : "提交打卡"}
             </AppButton>
-            <AppButtonLink href={`/child/tasks/${task.id}/result`} variant="secondary">
+            <AppButtonLink href={resultHref} variant="secondary">
               查看提交结果
             </AppButtonLink>
           </div>

@@ -75,12 +75,12 @@
 - `/parent/tasks/[taskId]`：家长任务详情和审核页，调用 `GET /tasks/:taskId` 和 `POST /tasks/:taskId/reviews`；仅在任务已有提交且处于 `submitted`、`ai_checking` 或 `parent_review` 状态时显示确认通过/要求补充，`pending`/`needs_resubmit` 状态显示编辑和删除按钮，删除前使用统一确认弹窗。
 - `/parent/tasks/[taskId]/edit`：编辑任务表单，调用 `GET /tasks/:taskId` 预填并 `PATCH /tasks/:taskId` 保存，支持修改未完成任务的奖励积分。
 - `/child`：孩子今日任务页，调用 `GET /tasks/today`；支持通过 tabs 切换今日、逾期和已完成三种筛选视图，复用 `includeOverdueIncomplete=true` 与 `includeCompleted=true` 请求参数取回完整筛选数据，并展示任务奖励积分。
-- `/child/calendar`：孩子日历面板，调用 `GET /tasks/calendar?month=YYYY-MM`，只读展示分配给自己的月任务；点击任务进入打卡页或提交结果页。
-- `/child/wishes`：孩子心愿清单页，调用 `GET /points/account`、`GET /wishes` 和 `POST /wishes/:wishId/redeem-requests`；通过入口卡片跳转到 `/child/wishes/new` 提交心愿；被驳回的心愿提供"修改心愿"和"删除心愿"入口，删除前使用统一确认弹窗。
+- `/child/calendar`：孩子日历面板，调用 `GET /tasks/calendar?month=YYYY-MM`，只读展示分配给自己的月任务；点击任务进入打卡页或提交结果页，并通过 `from=calendar` 保持返回目标为日历面板。
+- `/child/wishes`：孩子心愿清单页，调用 `GET /points/account`、`GET /wishes` 和 `POST /wishes/:wishId/redeem-requests`；通过紧凑快捷入口跳转到 `/child/wishes/new` 提交心愿；被驳回的心愿提供"修改心愿"和"删除心愿"入口，删除前使用统一确认弹窗。
 - `/child/wishes/new`：孩子提交新心愿页，调用 `POST /wishes`，提交成功后返回 `/child/wishes`。
 - `/child/wishes/[wishId]/edit`：孩子修改被驳回的心愿页，调用 `GET /wishes/:wishId` 预填并 `PATCH /wishes/:wishId` 保存；保存成功后状态回到 `pending_review` 并清空所需积分、家长审核记录和驳回原因。
-- `/child/tasks/[taskId]/check-in`：孩子打卡页，调用 `GET /tasks/:taskId` 和 `POST /tasks/:taskId/submissions`。
-- `/child/tasks/[taskId]/result`：提交结果页，调用 `GET /tasks/:taskId`，展示任务信息、提交状态、孩子备注和已上传图片，并通过弹窗展示 AI 检查状态或摘要。
+- `/child/tasks/[taskId]/check-in`：孩子打卡页，调用 `GET /tasks/:taskId` 和 `POST /tasks/:taskId/submissions`；顶部统一展示返回按钮，默认返回任务清单，从日历进入时返回日历。
+- `/child/tasks/[taskId]/result`：提交结果页，调用 `GET /tasks/:taskId`，展示任务信息、提交状态、孩子备注和已上传图片，并通过弹窗展示 AI 检查状态或摘要；顶部返回按钮会根据来源返回任务清单或日历。
 
 当前不包含：
 

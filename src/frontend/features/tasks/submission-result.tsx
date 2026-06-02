@@ -9,7 +9,15 @@ import { ApiError, getTask } from "@/features/api/client";
 import { getImageCount, statusLabel, statusTone } from "@/features/tasks/status";
 import type { StudyTask } from "@/features/tasks/types";
 
-export function SubmissionResult({ taskId }: { taskId: string }) {
+export function SubmissionResult({
+  taskId,
+  returnHref = "/child",
+  returnLabel = "返回任务清单"
+}: {
+  taskId: string;
+  returnHref?: string;
+  returnLabel?: string;
+}) {
   const [task, setTask] = useState<StudyTask | null>(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -63,6 +71,13 @@ export function SubmissionResult({ taskId }: { taskId: string }) {
 
   return (
     <div className="mx-auto grid max-w-lg gap-5">
+      <div className="flex">
+        <AppButtonLink href={returnHref} variant="ghost" className="gap-1.5 px-3 text-muted hover:text-ink">
+          <span aria-hidden className="text-body">←</span>
+          {returnLabel}
+        </AppButtonLink>
+      </div>
+
       <div className="rounded-[32px] bg-[#f7cd67] p-5 text-[#725d42] shadow-[0_10px_0_rgba(114,93,66,0.08)] md:p-6">
         <div className="flex flex-wrap items-center gap-2">
           <Badge>{task.subject}</Badge>
@@ -152,14 +167,9 @@ export function SubmissionResult({ taskId }: { taskId: string }) {
           {task.status === "confirmed"
             ? "家长已确认通过。"
             : task.status === "needs_resubmit"
-              ? "家长要求补充，请返回任务列表重新提交。"
+              ? `家长要求补充，请${returnLabel}重新提交。`
               : "已提交成功，等待家长查看和确认。"}
         </p>
-        <div className="mt-5">
-          <AppButtonLink href="/child" variant="secondary">
-            返回今日任务
-          </AppButtonLink>
-        </div>
       </AppCard>
 
       <AppModal

@@ -1,10 +1,16 @@
 import { SubmissionResult } from "@/features/tasks/submission-result";
 
 export default async function SubmissionResultPage({
-  params
+  params,
+  searchParams
 }: {
   params: Promise<{ taskId: string }>;
+  searchParams: Promise<{ from?: string }>;
 }) {
   const { taskId } = await params;
-  return <SubmissionResult taskId={taskId} />;
+  const { from } = await searchParams;
+  const returnHref = from === "calendar" ? "/child/calendar" : "/child";
+  const returnLabel = from === "calendar" ? "返回日历" : "返回任务清单";
+
+  return <SubmissionResult taskId={taskId} returnHref={returnHref} returnLabel={returnLabel} />;
 }
