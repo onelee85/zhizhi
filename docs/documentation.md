@@ -64,6 +64,8 @@
 
 前端专用说明文档位于 `src/frontend/README.md`，包含项目架构、依赖版本、启动、打包、部署和页面验证方式。
 
+前端 E2E 测试位于 `tests/e2e`。任务主流程由 `tests/e2e/task/task-flow.spec.ts` 覆盖；日历面板由 `tests/e2e/task/calendar.spec.ts` 覆盖，包含家长月视图切换、按日期创建、编辑同步、删除同步，以及孩子只读日历和从日历进入打卡页的返回来源。
+
 已包含页面：
 
 - `/`：首页和阶段说明。
