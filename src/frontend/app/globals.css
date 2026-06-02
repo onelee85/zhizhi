@@ -116,6 +116,18 @@ textarea {
   box-shadow: none !important;
 }
 
+.zhizhi-login-submit {
+  background: #aee8d4 !important;
+  border-color: #8fd8be !important;
+  color: #2f6f60 !important;
+  box-shadow: inset 0 -5px 0 rgba(68, 129, 111, 0.22), 0 4px 0 rgba(114, 93, 66, 0.12) !important;
+}
+
+.zhizhi-login-submit:hover {
+  background: #9ee0c9 !important;
+  color: #235d50 !important;
+}
+
 .zhizhi-app-button-link-shell {
   display: inline-flex;
   min-height: 44px;

@@ -85,22 +85,7 @@ export function HeaderNav() {
     );
   }
 
-  return (
-    <nav className="flex flex-wrap items-center justify-end gap-2">
-      <Link
-        href="/login"
-        className="hidden rounded-full border border-hairline/70 bg-canvas/80 px-4 py-2 text-nav-link text-muted transition-colors hover:border-brand-mint/50 hover:bg-brand-mint/10 hover:text-ink sm:inline-flex"
-      >
-        任务清单
-      </Link>
-      <Link
-        href="/login"
-        className="inline-flex h-10 items-center justify-center rounded-full bg-ink px-5 text-button text-on-primary shadow-[inset_0_-3px_0_rgba(0,0,0,0.2)] transition-colors hover:bg-body-strong"
-      >
-        登录
-      </Link>
-    </nav>
-  );
+  return null;
 }
 
 function HeaderNavLink({ item, active }: { item: NavItem; active: boolean }) {

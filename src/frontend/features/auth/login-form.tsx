@@ -28,27 +28,51 @@ export function LoginForm() {
   }
 
   return (
-    <div className="mx-auto grid max-w-5xl gap-8 py-6 md:grid-cols-[0.95fr_1.05fr] md:items-center md:py-section">
-      <section className="grid gap-5">
-        <p className="w-fit rounded-pill bg-surface-card px-4 py-2 text-caption-uppercase text-muted">
-          Account
-        </p>
-        <h1 className="text-display-md text-ink md:text-display-lg">用户名密码登录</h1>
-        <p className="max-w-xl text-body-md text-body">
-          使用后端 MySQL 应用用户体系登录，家长和孩子会进入各自的任务工作台。
-        </p>
-        <div className="grid gap-3 rounded-xl bg-brand-peach p-5">
-          <p className="text-title-sm text-ink">Demo 账号</p>
-          <p className="text-body-sm text-ink/75">家长：parent_demo / password123</p>
-          <p className="text-body-sm text-ink/75">孩子：child_demo / password123</p>
+    <div className="mx-auto grid max-w-5xl gap-6 py-6 md:grid-cols-[0.92fr_1.08fr] md:items-center md:py-section">
+      <section className="grid gap-5 rounded-[32px] bg-[#fffdf2] p-5 shadow-[0_10px_0_rgba(114,93,66,0.08)] md:p-7">
+        <div>
+          <p className="w-fit rounded-pill bg-[#82d5bb] px-4 py-2 text-caption-uppercase text-white shadow-[inset_0_-3px_0_rgba(68,129,111,0.28)]">
+            Account
+          </p>
+          <h1 className="mt-4 text-display-md tracking-normal text-ink md:text-display-lg">用户名密码登录</h1>
+        </div>
+        <div className="grid gap-3">
+          <div className="rounded-[24px] border-2 border-[#eadfc3] bg-[#fffdf8] p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-title-sm text-ink">家长 Demo</p>
+              <span className="rounded-pill bg-[#f7cd67] px-3 py-1 text-caption font-bold text-[#725d42]">
+                parent
+              </span>
+            </div>
+            <p className="mt-3 text-body-sm text-muted">parent_demo / password123</p>
+          </div>
+          <div className="rounded-[24px] border-2 border-[#d8eee6] bg-[#f2fbf7] p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-title-sm text-ink">孩子 Demo</p>
+              <span className="rounded-pill bg-[#82d5bb] px-3 py-1 text-caption font-bold text-white">
+                child
+              </span>
+            </div>
+            <p className="mt-3 text-body-sm text-muted">child_demo / password123</p>
+          </div>
         </div>
       </section>
 
-      <Card className="bg-canvas/95">
-        <form className="grid gap-4" onSubmit={handleSubmit}>
-          <CardTitle>登录</CardTitle>
-          <label>
-            用户名
+      <Card className="overflow-hidden bg-canvas/95 p-0 md:p-0">
+        <div className="relative overflow-hidden border-b-2 border-[#cfe8de] bg-[#e8f8ef] px-5 py-5 md:px-6">
+          <div className="absolute -right-8 -top-10 h-28 w-28 rounded-full bg-[#82d5bb]/35" />
+          <div className="absolute -bottom-10 left-8 h-20 w-20 rounded-full bg-white/70" />
+          <div className="relative">
+            <p className="w-fit rounded-pill bg-white/80 px-3 py-1 text-caption-uppercase text-[#44816f] shadow-[inset_0_-2px_0_rgba(68,129,111,0.12)]">
+              准备出发
+            </p>
+            <CardTitle className="mt-3 text-[#2f6f60]">登上学习岛</CardTitle>
+            <p className="mt-2 text-body-sm text-[#44816f]">输入账号，开启今天的小任务。</p>
+          </div>
+        </div>
+        <form className="grid gap-5 p-5 md:p-6" onSubmit={handleSubmit}>
+          <label className="grid gap-2">
+            <span className="text-title-sm text-ink">用户名</span>
             <input
               value={username}
               onChange={(event) => setUsername(event.target.value)}
@@ -56,8 +80,8 @@ export function LoginForm() {
               autoComplete="username"
             />
           </label>
-          <label>
-            密码
+          <label className="grid gap-2">
+            <span className="text-title-sm text-ink">密码</span>
             <input
               type="password"
               value={password}
@@ -66,8 +90,12 @@ export function LoginForm() {
               autoComplete="current-password"
             />
           </label>
-          {error ? <p className="text-body-sm text-brand-coral">{error}</p> : null}
-          <Button type="submit" disabled={isSubmitting} className="mt-2">
+          {error ? (
+            <p className="rounded-[18px] bg-[#fff1eb] px-4 py-3 text-body-sm font-medium text-brand-coral">
+              {error}
+            </p>
+          ) : null}
+          <Button type="submit" disabled={isSubmitting} className="zhizhi-login-submit mt-1 w-full">
             {isSubmitting ? "登录中..." : "登录"}
           </Button>
         </form>
