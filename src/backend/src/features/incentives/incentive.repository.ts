@@ -249,11 +249,11 @@ export class IncentiveRepository {
     return this.findWishById(wishId);
   }
 
-  async deleteWish(wishId: string) {
+  async deleteWish(wishId: string, requiredStatus: Wish["status"]) {
     await this.db.execute<ResultSetHeader>(
       `delete from wish
-       where id = :wishId and status = 'rejected'`,
-      { wishId }
+       where id = :wishId and status = :requiredStatus`,
+      { wishId, requiredStatus }
     );
 
     return { wishId, deleted: true };

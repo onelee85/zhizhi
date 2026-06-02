@@ -10,7 +10,7 @@ import { ApiError, deleteTask, getTask, reviewTask } from "@/features/api/client
 import { getImageCount, statusLabel, statusTone } from "@/features/tasks/status";
 import type { StudyTask } from "@/features/tasks/types";
 
-export function ParentTaskDetail({ taskId }: { taskId: string }) {
+export function ParentTaskDetail({ taskId, returnHref = "/parent" }: { taskId: string; returnHref?: string }) {
   const router = useRouter();
   const [task, setTask] = useState<StudyTask | null>(null);
   const [comment, setComment] = useState("");
@@ -70,7 +70,7 @@ export function ParentTaskDetail({ taskId }: { taskId: string }) {
 
     try {
       await deleteTask(taskId);
-      router.push("/parent");
+      router.push(returnHref);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "删除任务失败");
       setIsDeleting(false);
@@ -93,7 +93,7 @@ export function ParentTaskDetail({ taskId }: { taskId: string }) {
   return (
     <div className="grid gap-8">
       <div className="flex flex-wrap items-center gap-2">
-        <ButtonLink href="/parent" variant="ghost" className="gap-1.5 px-3 text-muted hover:text-ink">
+        <ButtonLink href={returnHref} variant="ghost" className="gap-1.5 px-3 text-muted hover:text-ink">
           <span aria-hidden className="text-body">←</span>
           返回
         </ButtonLink>

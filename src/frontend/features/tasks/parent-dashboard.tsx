@@ -109,6 +109,7 @@ export function ParentDashboardView() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2 md:justify-end">
+          <AppButtonLink href="/parent/calendar" variant="secondary">日历面板</AppButtonLink>
           <AppButtonLink href="/parent/wishes" variant="secondary">愿望管理</AppButtonLink>
           <AppButtonLink href="/parent/tasks/new">创建任务</AppButtonLink>
         </div>

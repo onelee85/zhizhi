@@ -109,6 +109,16 @@ Avoid adding many new colors. Keep child pages warm and mission-like; keep paren
 - Use `AppConfirmModal` for deleting tasks from the list; keep the task title visible in the modal detail.
 - Avoid playful copy that would slow down parent review.
 
+### Calendar Panel
+
+- Use a class Apple Calendar month view as the interaction baseline, adapted to animal-island-ui surfaces.
+- Desktop layout: month toolbar, 7-column calendar grid, and a right-side selected-day inspector. The inspector stays visible while scanning the month and contains the full task list for the selected date.
+- iPad layout: keep the full 7-column month grid; place the selected-day task area below the grid so tap targets stay large and the calendar remains readable.
+- Each date cell shows the day number, today highlight, optional create `+` action for parents, and up to 3 compact task chips. Overflow is summarized as "还有 N 项".
+- Parent interaction: tap/click a date selects it; tap/click `+` creates a task with that date as default `dueDate`; tap/click a task chip opens task detail; incomplete tasks can be edited or deleted from the selected-day inspector.
+- Child interaction: read-only. Tap/click a task opens check-in when incomplete, or result when already submitted/confirmed.
+- Calendar cells must have stable min-height and task chips must truncate rather than resize the grid.
+
 ## Constraints
 
 - Do not change backend APIs for visual refactors.

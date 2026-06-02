@@ -11,6 +11,7 @@ import { TaskService } from "./features/tasks/task.service.js";
 import { IncentiveRepository } from "./features/incentives/incentive.repository.js";
 import { IncentiveService } from "./features/incentives/incentive.service.js";
 import {
+  calendarTaskQuerySchema,
   createTaskSchema,
   loginSchema,
   reviewTaskSchema,
@@ -107,8 +108,8 @@ router.add("PATCH", "/wishes/:wishId", async ({ request, response, params }) => 
 });
 
 router.add("DELETE", "/wishes/:wishId", async ({ request, response, params }) => {
-  const child = await requireRole(request.headers.authorization, "child");
-  await incentiveService.deleteWish(child, params.wishId);
+  const user = await requireUser(request.headers.authorization);
+  await incentiveService.deleteWish(user, params.wishId);
   sendJson(response, 204, null);
 });
 
@@ -146,6 +147,16 @@ router.add("GET", "/tasks/today", async ({ request, response, query }) => {
   const includeCompleted = query.get("includeCompleted") === "true";
   sendJson(response, 200, {
     tasks: await taskService.listTodayTasks(user, { includeOverdueIncomplete, includeCompleted })
+  });
+});
+
+router.add("GET", "/tasks/calendar", async ({ request, response, query }) => {
+  const user = await requireUser(request.headers.authorization);
+  const parsedQuery = calendarTaskQuerySchema.parse({
+    month: query.get("month")
+  });
+  sendJson(response, 200, {
+    tasks: await taskService.listCalendarTasks(user, parsedQuery)
   });
 });
 

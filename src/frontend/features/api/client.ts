@@ -137,6 +137,11 @@ export async function getTodayTasks(
   return request<{ tasks: StudyTask[] }>(`/tasks/today${query}`);
 }
 
+export async function getCalendarTasks(month: string) {
+  const params = new URLSearchParams({ month });
+  return request<{ tasks: StudyTask[] }>(`/tasks/calendar?${params.toString()}`);
+}
+
 export async function getTask(taskId: string) {
   return request<{ task: StudyTask }>(`/tasks/${encodeURIComponent(taskId)}`);
 }

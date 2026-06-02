@@ -34,6 +34,12 @@ const approvedWish: Wish = {
   updatedAt: "2026-06-01T00:00:00.000Z"
 };
 
+const redeemedWish: Wish = {
+  ...approvedWish,
+  status: "redeemed",
+  redeemedAt: "2026-06-02T10:00:00.000Z"
+};
+
 describe("IncentiveService", () => {
   it("requires parent users to pass a childUserId when reading point accounts", async () => {
     const service = new IncentiveService(mockRepository({}) as IncentiveRepository);
@@ -189,19 +195,19 @@ describe("IncentiveService", () => {
 
   it("allows a child to delete their own rejected wish", async () => {
     const rejectedWish: Wish = { ...approvedWish, status: "rejected" };
-    let deletedWishId = "";
+    let deletedStatus = "";
     const service = new IncentiveService(
       mockRepository({
         findWishById: async () => rejectedWish,
-        deleteWish: async (wishId) => {
-          deletedWishId = wishId;
+        deleteWish: async (wishId, requiredStatus) => {
+          deletedStatus = requiredStatus;
           return { wishId, deleted: true };
         }
       }) as IncentiveRepository
     );
 
     await service.deleteWish(child, "wish-1");
-    assert.equal(deletedWishId, "wish-1");
+    assert.equal(deletedStatus, "rejected");
   });
 
   it("blocks a child from deleting a wish that is not rejected", async () => {
@@ -232,6 +238,65 @@ describe("IncentiveService", () => {
       return true;
     });
   });
+
+  it("blocks a child from deleting a redeemed wish", async () => {
+    const service = new IncentiveService(
+      mockRepository({
+        findWishById: async () => redeemedWish
+      }) as IncentiveRepository
+    );
+
+    await assert.rejects(() => service.deleteWish(child, "wish-1"), (error) => {
+      assert.equal(error instanceof AppError, true);
+      assert.equal((error as AppError).code, "WISH_NOT_DELETABLE");
+      return true;
+    });
+  });
+
+  it("allows a parent to delete a redeemed wish in the same family", async () => {
+    let deletedStatus = "";
+    const service = new IncentiveService(
+      mockRepository({
+        findWishById: async () => redeemedWish,
+        deleteWish: async (wishId, requiredStatus) => {
+          deletedStatus = requiredStatus;
+          return { wishId, deleted: true };
+        }
+      }) as IncentiveRepository
+    );
+
+    await service.deleteWish(parent, "wish-1");
+    assert.equal(deletedStatus, "redeemed");
+  });
+
+  it("blocks a parent from deleting a wish that is not redeemed", async () => {
+    const service = new IncentiveService(
+      mockRepository({
+        findWishById: async () => approvedWish
+      }) as IncentiveRepository
+    );
+
+    await assert.rejects(() => service.deleteWish(parent, "wish-1"), (error) => {
+      assert.equal(error instanceof AppError, true);
+      assert.equal((error as AppError).code, "WISH_NOT_DELETABLE");
+      return true;
+    });
+  });
+
+  it("blocks a parent from deleting a wish outside the current family", async () => {
+    const otherFamilyWish: Wish = { ...redeemedWish, familyId: "family-2" };
+    const service = new IncentiveService(
+      mockRepository({
+        findWishById: async () => otherFamilyWish
+      }) as IncentiveRepository
+    );
+
+    await assert.rejects(() => service.deleteWish(parent, "wish-1"), (error) => {
+      assert.equal(error instanceof AppError, true);
+      assert.equal((error as AppError).code, "FORBIDDEN");
+      return true;
+    });
+  });
 });
 
 function mockRepository(overrides: Partial<IncentiveRepository>) {
@@ -250,7 +315,7 @@ function mockRepository(overrides: Partial<IncentiveRepository>) {
     listLedger: async () => [],
     findWishById: async () => undefined,
     updateWish: async () => undefined,
-    deleteWish: async () => ({ wishId: "", deleted: true }),
+    deleteWish: async (_wishId: string, requiredStatus: Wish["status"]) => ({ wishId: "", deleted: true, requiredStatus }),
     ...overrides
   };
 }

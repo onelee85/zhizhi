@@ -177,6 +177,40 @@
 - 修复顶部菜单激活态匹配 bug：原 `match` 用 `path.startsWith("/child/")` 同时匹配 `/child/wishes`，导致进入心愿单页时“任务清单”仍被高亮。
 - 改为"任务清单"匹配 `dashboardHref` 精确路径或子路径但排除 `wishlistHref` 子树；"心愿单"匹配 `wishlistHref` 精确路径或子路径。
 
+## 2026-06-02
+
+- 家长端新增“删除已兑换的心愿”功能。
+- 后端 `DELETE /wishes/:wishId` 重构为按角色区分入口：孩子仍可删除自己被驳回的 `rejected` 心愿；家长可删除当前家庭内孩子的 `redeemed` 心愿；其它状态或跨家庭/跨孩子访问返回 `403 FORBIDDEN` 或 `409 WISH_NOT_DELETABLE`。
+- `IncentiveService.deleteWish` 改为按 `user.role` 调度权限校验和状态校验；`IncentiveRepository.deleteWish` 新增 `requiredStatus` 入参，SQL 仅在指定状态匹配时物理删除。
+- 后端路由从 `requireRole("child")` 改为 `requireUser`，由 service 决定角色权限，避免 `requireRole` 单一角色限制。
+- 单元测试在原有 12 个 case 基础上新增 3 个 case：家长可删除 `redeemed` 心愿、家长删除非 `redeemed` 心愿被拒、家长跨家庭访问被拒；并将“孩子删除 `redeemed` 心愿被拒”补充为边界用例，合计 15 个 case 全部通过。
+- 家长愿望管理页 (`/parent/wishes`) 在 `redeemed` 心愿上新增“删除心愿”按钮，点击后弹出 `AppConfirmModal`（danger 样式）确认；确认后调用现有 `DELETE /wishes/:wishId`，成功后从列表移除。
+- 同步更新 `docs/api.md` 中 `DELETE /wishes/:wishId` 的角色语义、错误码和权限说明，以及 `src/backend/src/docs/openapi.ts` 中对应条目；`docs/documentation.md` 同步家长愿望管理页、后端接口表和核心页面说明。
+- 根据新增产品需求更新 `docs/prd.md`，新增“日历面板”功能章节。
+- 日历面板定义为现有任务系统的日历化展示与操作入口，不新增独立任务系统。
+- 明确日历面板支持月视图、当前年月、上月 / 下月切换、回到今天、今日高亮、每日任务摘要、点击日期创建任务、点击任务查看详情和移动端基础适配。
+- 明确家长可在日历中查看当前家庭孩子任务，并创建、编辑、删除未完成任务；孩子只能查看自己的任务，MVP 不允许创建、编辑或删除。
+- 明确日历任务 CRUD 仍复用现有任务权限、状态流转和积分规则，积分只在家长审核通过后发放。
+- 补充日历面板 MVP 范围、暂不纳入范围、交互说明、数据模型影响、验收标准和待确认问题。
+- 同步更新 `docs/documentation.md` 的产品概览、当前未实现范围、核心页面和数据模型说明。
+- 本次仅更新产品与项目文档，未实现前后端代码；后端 API 未变更，`docs/api.md` 无需更新。
+- 更新 `docs/plan.md`，将阶段三从“AI 完成度检查与错题记录”调整为“日历面板”。
+- `docs/plan.md` 阶段三补充月视图日历、上月 / 下月切换、回到今天、今日高亮、按日期创建任务、编辑任务、删除未完成任务、孩子只读和移动端基础适配。
+- 将 `docs/plan.md` 中 AI 完成度检查、错题记录、薄弱点分析和周报顺延合并到阶段四。
+- 同步更新 `docs/prd.md` 的 MVP 开发计划和研发排期，以及 `docs/documentation.md` 的 MVP 阶段计划说明。
+- 本次仍仅更新文档，未实现前后端代码；后端 API 未变更，`docs/api.md` 无需更新。
+- 完成阶段 3 日历面板的前后端基础实现。
+- 后端新增 `GET /tasks/calendar?month=YYYY-MM`，使用 Zod 校验月份参数；家长返回当前家庭该月份全部任务，孩子只返回分配给自己的该月份任务。
+- `TaskRepository` 新增按日期范围查询家庭任务和孩子任务的方法，`TaskService.listCalendarTasks` 负责角色隔离和提交信息补全。
+- 将任务编辑/删除的业务规则统一为未完成任务（`pending`、`needs_resubmit`）可操作，修复前端已展示“需补充”可编辑/删除但后端拒绝的问题。
+- 前端新增 `TaskCalendarPanel`，并新增 `/parent/calendar` 与 `/child/calendar` 路由。
+- 日历面板采用类 Apple Calendar 月视图：桌面端为 7 列月历 + 右侧选中日期检查器，iPad 端保留 7 列月历并将选中日期任务区下移，使用 tap 选择日期、tap 任务进入详情、tap `+` 创建任务。
+- 家长日历支持上月 / 下月、今天、今日高亮、日期任务摘要、点击日期创建任务、点击任务进入详情、在选中日期检查器编辑或删除未完成任务。
+- 孩子日历只读展示自己的任务，点击任务按状态进入打卡页或结果页。
+- 创建任务页支持从日历传入 `dueDate=YYYY-MM-DD`，表单默认截止日期即为所选日期。
+- 顶部导航、家长任务管理页和孩子今日任务页新增日历入口。
+- 同步更新 `docs/api.md`、`docs/documentation.md` 和 `docs/plan.md`。
+
 ## 当前状态
 
 - 当前仓库已创建阶段 1-2 前端页面，并已接入本地后端 API。
@@ -315,6 +349,7 @@ pnpm build
 - `GET /tasks/:taskId`
 - `POST /tasks/:taskId/submissions`
 - `POST /tasks/:taskId/reviews`
+- `DELETE /wishes/:wishId`（孩子删除 `rejected` 心愿 / 家长删除 `redeemed` 心愿）
 
 ## 2026-06-01
 
@@ -332,6 +367,12 @@ pnpm build
 - 已执行 `PLAYWRIGHT_CHROMIUM_CHANNEL=chrome pnpm exec playwright test tests/e2e/task/task-flow.spec.ts --project=chromium`，结果 `1 passed`。
 - `.gitignore` 新增 Playwright 本地报告产物 `test-results/` 和 `playwright-report/`。
 - `.gitignore` 新增本地上传照片目录 `src/backend/storage/uploads/photos/`，避免测试和开发上传文件进入版本控制。
+
+## 2026-06-02
+
+- 已在后端 `IncentiveService` 单测中追加 3 个 case 并调整 1 个已有 case 的状态断言，覆盖家长删除 `redeemed` 心愿、家长删除非 `redeemed` 心愿被拒、家长跨家庭访问被拒和孩子删除 `redeemed` 心愿被拒；`pnpm test` 结果 `15 passed`。
+- 后端已通过 `pnpm typecheck` 和 `pnpm build`。
+- 前端已通过 `pnpm typecheck`；家长愿望管理页在 `redeemed` 心愿上展示"删除心愿"按钮并接入危险样式确认弹窗，删除成功后从列表移除。
 
 ## 核心模块清单
 

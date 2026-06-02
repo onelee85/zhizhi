@@ -15,7 +15,15 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function TaskForm({ task }: { task?: StudyTask }) {
+export function TaskForm({
+  task,
+  initialDueDate,
+  returnHref
+}: {
+  task?: StudyTask;
+  initialDueDate?: string;
+  returnHref?: string;
+}) {
   const router = useRouter();
   const isEdit = Boolean(task);
   const [childUserId, setChildUserId] = useState(task?.childUserId ?? demoChildren[0].id);
@@ -23,7 +31,7 @@ export function TaskForm({ task }: { task?: StudyTask }) {
   const [taskType, setTaskType] = useState<TaskType>(task?.taskType ?? "练习");
   const [title, setTitle] = useState(task?.title ?? "");
   const [description, setDescription] = useState(task?.description ?? "");
-  const [dueDate, setDueDate] = useState(task?.dueDate ?? today());
+  const [dueDate, setDueDate] = useState(task?.dueDate ?? initialDueDate ?? today());
   const [dueTime, setDueTime] = useState(task?.dueTime ?? "20:30");
   const [needPhoto, setNeedPhoto] = useState(task?.needPhoto ?? true);
   const [needAiCheck, setNeedAiCheck] = useState(task?.needAiCheck ?? false);
@@ -85,7 +93,7 @@ export function TaskForm({ task }: { task?: StudyTask }) {
   return (
     <div className="mx-auto grid max-w-4xl gap-6">
       <ButtonLink
-        href={isEdit && task ? `/parent/tasks/${task.id}` : "/parent"}
+        href={returnHref ?? (isEdit && task ? `/parent/tasks/${task.id}` : "/parent")}
         variant="ghost"
         className="gap-1.5 -ml-2 px-3 text-muted hover:text-ink"
       >

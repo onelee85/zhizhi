@@ -9,6 +9,7 @@ import {
   ApiError,
   approveWish,
   confirmWishRedeem,
+  deleteWish,
   getPointAccount,
   getWishes,
   rejectWish
@@ -25,6 +26,7 @@ export function ParentWishlist() {
   const [requiredPointsByWish, setRequiredPointsByWish] = useState<Record<string, string>>({});
   const [rejectReasonByWish, setRejectReasonByWish] = useState<Record<string, string>>({});
   const [confirmTarget, setConfirmTarget] = useState<Wish | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Wish | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -132,6 +134,27 @@ export function ParentWishlist() {
       setMessage("已确认兑换，积分已扣减。");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "确认兑换失败");
+    } finally {
+      setActionWishId(null);
+    }
+  }
+
+  async function handleConfirmDelete() {
+    if (!deleteTarget) {
+      return;
+    }
+
+    setError("");
+    setMessage("");
+    setActionWishId(deleteTarget.id);
+
+    try {
+      await deleteWish(deleteTarget.id);
+      setWishes((prev) => prev.filter((wish) => wish.id !== deleteTarget.id));
+      setDeleteTarget(null);
+      setMessage("已删除已兑换的心愿。");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "删除心愿失败");
     } finally {
       setActionWishId(null);
     }
@@ -246,6 +269,19 @@ export function ParentWishlist() {
                     </AppButton>
                   </div>
                 ) : null}
+
+                {wish.status === "redeemed" ? (
+                  <div className="flex justify-start">
+                    <AppButton
+                      type="button"
+                      variant="secondary"
+                      disabled={actionWishId === wish.id}
+                      onClick={() => setDeleteTarget(wish)}
+                    >
+                      {actionWishId === wish.id ? "处理中..." : "删除心愿"}
+                    </AppButton>
+                  </div>
+                ) : null}
               </div>
             ))}
             {!isLoading && wishes.length === 0 ? (
@@ -285,6 +321,18 @@ export function ParentWishlist() {
         loading={Boolean(confirmTarget && actionWishId === confirmTarget.id)}
         onClose={() => setConfirmTarget(null)}
         onConfirm={() => void handleConfirmRedeem()}
+      />
+
+      <AppConfirmModal
+        open={Boolean(deleteTarget)}
+        title="删除已兑换的心愿"
+        description="删除后将从心愿清单移除该记录，且无法恢复。"
+        detail={deleteTarget ? deleteTarget.title : undefined}
+        confirmText="删除心愿"
+        tone="danger"
+        loading={Boolean(deleteTarget && actionWishId === deleteTarget.id)}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => void handleConfirmDelete()}
       />
     </div>
   );

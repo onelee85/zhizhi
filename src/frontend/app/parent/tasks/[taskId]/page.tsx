@@ -1,10 +1,15 @@
 import { ParentTaskDetail } from "@/features/tasks/parent-task-detail";
 
 export default async function ParentTaskDetailPage({
-  params
+  params,
+  searchParams
 }: {
   params: Promise<{ taskId: string }>;
+  searchParams: Promise<{ from?: string }>;
 }) {
   const { taskId } = await params;
-  return <ParentTaskDetail taskId={taskId} />;
+  const { from } = await searchParams;
+  const returnHref = from === "calendar" ? "/parent/calendar" : "/parent";
+
+  return <ParentTaskDetail taskId={taskId} returnHref={returnHref} />;
 }

@@ -3,7 +3,7 @@ export const openApiSpec = {
   info: {
     title: "知知小助手后端 API",
     version: "0.1.0",
-    description: "阶段 1-2 后端接口，当前使用 MySQL 实现登录、任务、打卡提交、家长审核、积分和愿望兑换。"
+    description: "阶段 1-3 后端接口，当前使用 MySQL 实现登录、任务、打卡提交、家长审核、积分、愿望兑换和日历面板。"
   },
   servers: [
     {
@@ -539,14 +539,15 @@ export const openApiSpec = {
       },
       delete: {
         tags: ["Wishes"],
-        summary: "孩子删除被驳回的心愿",
-        description: "仅心愿所有者孩子可调用；仅 `rejected` 状态可删除；物理删除该心愿记录。",
+        summary: "删除心愿",
+        description: "孩子和家长的删除入口共用该接口：孩子仅可删除自己的 `rejected` 心愿；家长仅可删除当前家庭内孩子的 `redeemed` 心愿。物理删除该心愿记录。",
         security: [{ bearerAuth: [] }],
         parameters: [{ name: "wishId", in: "path", required: true, schema: { type: "string" } }],
         responses: {
           "204": { description: "删除成功" },
-          "403": { description: "非孩子用户或心愿不在该孩子下" },
-          "409": { description: "仅 `rejected` 状态的心愿可被删除" }
+          "403": { description: "角色不支持删除、家长跨家庭访问或孩子跨孩子访问" },
+          "404": { description: "愿望不存在" },
+          "409": { description: "当前角色对应的状态不允许删除（孩子仅 rejected、家长仅 redeemed）" }
         }
       }
     },
@@ -573,6 +574,27 @@ export const openApiSpec = {
         ],
         responses: {
           "200": { description: "今日任务列表" }
+        }
+      }
+    },
+    "/tasks/calendar": {
+      get: {
+        tags: ["Tasks"],
+        summary: "月视图任务列表",
+        description: "家长返回当前家庭该月份全部任务；孩子只返回分配给自己的该月份任务。",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "month",
+            in: "query",
+            required: true,
+            schema: { type: "string", pattern: "^\\d{4}-\\d{2}$" },
+            description: "月份，格式 YYYY-MM。"
+          }
+        ],
+        responses: {
+          "200": { description: "月视图任务列表" },
+          "400": { description: "月份参数格式错误" }
         }
       }
     },

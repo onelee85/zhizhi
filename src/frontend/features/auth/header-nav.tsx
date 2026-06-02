@@ -30,6 +30,7 @@ export function HeaderNav() {
   if (user) {
     const dashboardHref = user.role === "parent" ? "/parent" : "/child";
     const wishlistHref = user.role === "parent" ? "/parent/wishes" : "/child/wishes";
+    const calendarHref = user.role === "parent" ? "/parent/calendar" : "/child/calendar";
     const items: NavItem[] = [
       {
         href: dashboardHref,
@@ -38,8 +39,14 @@ export function HeaderNav() {
         match: (path) => {
           if (path === dashboardHref) return true;
           if (!path.startsWith(`${dashboardHref}/`)) return false;
-          return !path.startsWith(wishlistHref);
+          return !path.startsWith(wishlistHref) && !path.startsWith(calendarHref);
         }
+      },
+      {
+        href: calendarHref,
+        label: "日历",
+        icon: "icon-map",
+        match: (path) => path === calendarHref || path.startsWith(`${calendarHref}/`)
       },
       {
         href: wishlistHref,

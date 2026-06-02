@@ -4,12 +4,19 @@ import type { StudyTask, User } from "../../domain/types.js";
 import type { TaskRepository } from "./task.repository.js";
 import type { IncentiveService } from "../incentives/incentive.service.js";
 import type { z } from "zod";
-import type { createTaskSchema, reviewTaskSchema, submitTaskSchema, updateTaskSchema } from "./task.schemas.js";
+import type {
+  calendarTaskQuerySchema,
+  createTaskSchema,
+  reviewTaskSchema,
+  submitTaskSchema,
+  updateTaskSchema
+} from "./task.schemas.js";
 
 type CreateTaskInput = z.infer<typeof createTaskSchema>;
 type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
 type SubmitTaskInput = z.infer<typeof submitTaskSchema>;
 type ReviewTaskInput = z.infer<typeof reviewTaskSchema>;
+type CalendarTaskQuery = z.infer<typeof calendarTaskQuerySchema>;
 
 export class TaskService {
   constructor(
@@ -34,6 +41,16 @@ export class TaskService {
     const task = assertFound(await this.repository.findTaskById(taskId), "Task not found");
     this.assertFamilyAccess(user, task);
     return this.withSubmission(task);
+  }
+
+  async listCalendarTasks(user: User, query: CalendarTaskQuery) {
+    const { startDate, endDate } = getMonthRange(query.month);
+    const tasks =
+      user.role === "child"
+        ? await this.repository.listChildTasksByDateRange(user.familyId, user.id, startDate, endDate)
+        : await this.repository.listFamilyTasksByDateRange(user.familyId, startDate, endDate);
+
+    return Promise.all(tasks.map((task) => this.withSubmission(task)));
   }
 
   async createTask(parent: User, input: CreateTaskInput) {
@@ -65,8 +82,8 @@ export class TaskService {
     const task = assertFound(await this.repository.findTaskById(taskId), "Task not found");
     this.assertParentFamilyAccess(parent, task);
 
-    if (task.status !== "pending") {
-      throw new AppError(409, "TASK_NOT_EDITABLE", "Only pending tasks can be edited");
+    if (!isIncompleteTask(task)) {
+      throw new AppError(409, "TASK_NOT_EDITABLE", "Only incomplete tasks can be edited");
     }
 
     return this.repository.updateTask(taskId, input);
@@ -76,8 +93,8 @@ export class TaskService {
     const task = assertFound(await this.repository.findTaskById(taskId), "Task not found");
     this.assertParentFamilyAccess(parent, task);
 
-    if (task.status !== "pending") {
-      throw new AppError(409, "TASK_NOT_DELETABLE", "Only pending tasks can be deleted");
+    if (!isIncompleteTask(task)) {
+      throw new AppError(409, "TASK_NOT_DELETABLE", "Only incomplete tasks can be deleted");
     }
 
     const imageUrls = await this.repository.listTaskImageUrls(taskId);
@@ -212,4 +229,16 @@ export class TaskService {
       throw new AppError(403, "FORBIDDEN", "Parent cannot access this task");
     }
   }
+}
+
+function getMonthRange(month: string) {
+  const [year, monthIndex] = month.split("-").map((part) => Number.parseInt(part, 10));
+  const startDate = `${month}-01`;
+  const endDate = new Date(Date.UTC(year, monthIndex, 0)).toISOString().slice(0, 10);
+
+  return { startDate, endDate };
+}
+
+function isIncompleteTask(task: StudyTask) {
+  return task.status === "pending" || task.status === "needs_resubmit";
 }

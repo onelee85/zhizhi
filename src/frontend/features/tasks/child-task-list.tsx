@@ -80,6 +80,9 @@ export function ChildTaskList() {
               <p className="text-caption font-semibold">任务数</p>
               <p className="mt-1 text-display-sm tracking-normal">{isLoading ? "-" : visibleTasks.length}</p>
             </div>
+            <AppButtonLink href="/child/calendar" variant="secondary" className="w-full">
+              任务日历
+            </AppButtonLink>
             <AppButtonLink href="/child/wishes" variant="secondary" className="w-full">
               我的心愿
             </AppButtonLink>

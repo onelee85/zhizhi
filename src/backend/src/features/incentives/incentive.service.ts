@@ -93,22 +93,32 @@ export class IncentiveService {
     );
   }
 
-  async deleteWish(child: User, wishId: string) {
-    if (child.role !== "child") {
-      throw new AppError(403, "FORBIDDEN", "Only children can delete wishes");
+  async deleteWish(user: User, wishId: string) {
+    const wish = await this.getFamilyWish(user, wishId);
+
+    if (user.role === "child") {
+      if (wish.childUserId !== user.id) {
+        throw new AppError(403, "FORBIDDEN", "Wish is outside current child");
+      }
+
+      if (wish.status !== "rejected") {
+        throw new AppError(409, "WISH_NOT_DELETABLE", "Only rejected wishes can be deleted");
+      }
+
+      await this.repository.deleteWish(wishId, "rejected");
+      return;
     }
 
-    const wish = await this.getFamilyWish(child, wishId);
+    if (user.role === "parent") {
+      if (wish.status !== "redeemed") {
+        throw new AppError(409, "WISH_NOT_DELETABLE", "Only redeemed wishes can be deleted");
+      }
 
-    if (wish.childUserId !== child.id) {
-      throw new AppError(403, "FORBIDDEN", "Wish is outside current child");
+      await this.repository.deleteWish(wishId, "redeemed");
+      return;
     }
 
-    if (wish.status !== "rejected") {
-      throw new AppError(409, "WISH_NOT_DELETABLE", "Only rejected wishes can be deleted");
-    }
-
-    await this.repository.deleteWish(wishId);
+    throw new AppError(403, "FORBIDDEN", "Only parents or children can delete wishes");
   }
 
   async approveWish(parent: User, wishId: string, input: ApproveWishInput) {

@@ -200,6 +200,53 @@ GET /tasks/today?includeOverdueIncomplete=true&includeCompleted=true
 }
 ```
 
+### GET /tasks/calendar - 获取月视图任务列表
+
+按月份获取日历面板任务。家长返回当前家庭内该月份全部孩子任务；孩子只返回分配给自己的该月份任务。
+
+**查询参数:**
+
+| 参数 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `month` | string | 是 | 月份，格式 `YYYY-MM`。 |
+
+**请求头:**
+```
+Authorization: Bearer <token>
+```
+
+**示例:**
+```
+GET /tasks/calendar?month=2026-06
+```
+
+**响应 (200):**
+```json
+{
+  "tasks": [
+    {
+      "id": "task-1",
+      "familyId": "family-1",
+      "childUserId": "child-1",
+      "creatorUserId": "parent-1",
+      "subject": "数学",
+      "taskType": "作业",
+      "title": "完成数学计算练习第 3 页",
+      "description": "完成第 3 页全部计算题，订正错题并圈出不会的题。",
+      "dueDate": "2026-06-02",
+      "dueTime": "20:30",
+      "needPhoto": true,
+      "needAiCheck": false,
+      "rewardPoints": 10,
+      "status": "pending",
+      "createdAt": "2026-06-02T10:00:00.000Z",
+      "updatedAt": "2026-06-02T10:00:00.000Z",
+      "submission": null
+    }
+  ]
+}
+```
+
 ### POST /tasks - 创建任务 (家长)
 
 家长为孩子创建新的学习任务。
@@ -652,11 +699,19 @@ Content-Type: application/json
 - `403 FORBIDDEN`: 非孩子用户或心愿不在该孩子下。
 - `409 WISH_NOT_EDITABLE`: 仅 `rejected` 状态的心愿可被修改。
 
-### DELETE /wishes/:wishId - 孩子删除被驳回的心愿
+### DELETE /wishes/:wishId - 删除心愿
 
-仅心愿所有者孩子可调用；仅 `rejected` 状态可删除。系统物理删除该心愿记录。
+孩子和家长的删除入口共用该接口，按当前用户角色和心愿状态进行权限校验：
 
-**权限要求**: 需要孩子角色
+- 孩子：仅可删除自己的 `rejected` 心愿。
+- 家长：仅可删除当前家庭内孩子的 `redeemed` 心愿。
+
+系统物理删除该心愿记录。
+
+**请求头:**
+```
+Authorization: Bearer <token>
+```
 
 **路径参数:**
 - `wishId`: 愿望 ID
@@ -665,8 +720,9 @@ Content-Type: application/json
 
 **错误响应:**
 
-- `403 FORBIDDEN`: 非孩子用户或心愿不在该孩子下。
-- `409 WISH_NOT_DELETABLE`: 仅 `rejected` 状态的心愿可被删除。
+- `403 FORBIDDEN`: 角色不支持删除、家长跨家庭访问或孩子跨孩子访问。
+- `404 NOT_FOUND`: 愿望不存在。
+- `409 WISH_NOT_DELETABLE`: 当前角色对应的状态不允许删除（孩子仅 `rejected`、家长仅 `redeemed`）。
 
 ### PATCH /wishes/:wishId/approve - 家长设置积分并通过
 

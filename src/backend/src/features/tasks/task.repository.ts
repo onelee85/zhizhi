@@ -142,6 +142,37 @@ export class TaskRepository {
     return rows.map(mapTask);
   }
 
+  async listFamilyTasksByDateRange(familyId: string, startDate: string, endDate: string) {
+    const [rows] = await this.db.execute<TaskRow[]>(
+      `select *
+       from study_task
+       where family_id = :familyId
+         and due_date >= :startDate
+         and due_date <= :endDate
+         and deleted_at is null
+       order by due_date, due_time is null, due_time, created_at`,
+      { familyId, startDate, endDate }
+    );
+
+    return rows.map(mapTask);
+  }
+
+  async listChildTasksByDateRange(familyId: string, childUserId: string, startDate: string, endDate: string) {
+    const [rows] = await this.db.execute<TaskRow[]>(
+      `select *
+       from study_task
+       where family_id = :familyId
+         and child_user_id = :childUserId
+         and due_date >= :startDate
+         and due_date <= :endDate
+         and deleted_at is null
+       order by due_date, due_time is null, due_time, created_at`,
+      { familyId, childUserId, startDate, endDate }
+    );
+
+    return rows.map(mapTask);
+  }
+
   async createTask(input: Omit<StudyTask, "id" | "createdAt" | "updatedAt" | "status">) {
     const now = currentTimestamp();
     const task: StudyTask = {

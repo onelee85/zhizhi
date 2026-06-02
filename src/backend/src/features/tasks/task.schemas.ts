@@ -23,6 +23,10 @@ export const updateTaskSchema = createTaskSchema
     message: "At least one field is required"
   });
 
+export const calendarTaskQuerySchema = z.object({
+  month: z.string().regex(/^\d{4}-\d{2}$/)
+});
+
 export const submitTaskSchema = z.object({
   completed: z.literal(true),
   imageUrls: z
