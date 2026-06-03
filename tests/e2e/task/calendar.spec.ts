@@ -208,14 +208,14 @@ test.describe("日历面板前端流程", () => {
     await expect(page.getByRole("heading", { name: updatedTitle })).toHaveCount(0);
   });
 
-  test("孩子只能只读查看自己的月任务，并从日历进入打卡页后返回日历", async ({ page }) => {
+  test("孩子只能只读查看自己的月任务，未来任务可查看但不能打卡", async ({ page }) => {
     const auth = new AuthPage(page);
     const unique = Date.now();
-    const targetDate = dateInCurrentMonth(18);
+    const targetDate = addDays(7);
     const currentMonth = targetDate.slice(0, 7);
     const task = {
       title: `E2E 孩子日历 ${unique}`,
-      description: "孩子端只能查看并进入打卡。",
+      description: "孩子端未来任务只能查看，不能提前打卡。",
       rewardPoints: 6,
       dueDate: targetDate
     };
@@ -227,6 +227,9 @@ test.describe("日历面板前端流程", () => {
     await auth.loginAsChild();
     const calendar = new CalendarPage(page);
     await calendar.gotoChildCalendar();
+    if (currentMonth !== localDate().slice(0, 7)) {
+      await page.getByRole("button", { name: "下月" }).click();
+    }
     await expect(page.getByRole("heading", { name: formatMonthTitle(currentMonth), exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "创建任务" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: /^在 .* 创建任务$/ })).toHaveCount(0);
@@ -238,6 +241,9 @@ test.describe("日历面板前端流程", () => {
     await page.getByRole("link", { name: task.title }).first().click();
     await expect(page).toHaveURL(/\/child\/tasks\/.+\/check-in\?from=calendar$/);
     await expect(page.getByRole("link", { name: "返回日历" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: task.title })).toBeVisible();
+    await expect(page.getByText("时间还没到哦")).toBeVisible();
+    await expect(page.getByRole("button", { name: "提交打卡" })).toHaveCount(0);
   });
 });
 
@@ -262,4 +268,11 @@ function localDate() {
   const now = new Date();
   const offsetMs = now.getTimezoneOffset() * 60 * 1000;
   return new Date(now.getTime() - offsetMs).toISOString().slice(0, 10);
+}
+
+function addDays(days: number) {
+  const next = new Date();
+  next.setDate(next.getDate() + days);
+  const offsetMs = next.getTimezoneOffset() * 60 * 1000;
+  return new Date(next.getTime() - offsetMs).toISOString().slice(0, 10);
 }

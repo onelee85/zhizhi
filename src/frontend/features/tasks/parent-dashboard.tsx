@@ -140,7 +140,6 @@ export function ParentDashboardView() {
         <div className="mb-4 grid gap-4 px-5 pt-5 md:grid-cols-[1fr_auto] md:items-start md:px-6 md:pt-6">
           <div>
             <AppCardTitle>任务列表</AppCardTitle>
-            <p className="mt-2 text-body-sm text-muted">后端实时数据</p>
           </div>
           <div className="grid gap-3 md:min-w-[430px] md:grid-cols-[1fr_1fr_auto]">
             <label className="text-caption text-muted">

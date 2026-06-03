@@ -129,6 +129,8 @@ export function CheckInForm({
     return <AppCard className="mx-auto max-w-lg text-body-sm text-brand-coral">{error || "任务不存在"}</AppCard>;
   }
 
+  const isFutureTask = isFutureDueDate(task.dueDate);
+
   return (
     <div className="mx-auto grid max-w-lg gap-5">
       <div className="flex">
@@ -148,73 +150,104 @@ export function CheckInForm({
         <p className="mt-3 text-body-sm text-white/85">{task.description}</p>
       </div>
 
-      <AppCard>
-        <form className="grid gap-5" onSubmit={handleSubmit}>
-          <AppCardTitle>完成并打卡</AppCardTitle>
-          <label className="flex items-center gap-3 rounded-[22px] bg-[#f7f0d8] p-4">
-            <input
-              className="h-4 w-4"
-              type="checkbox"
-              checked={completed}
-              onChange={(event) => setCompleted(event.target.checked)}
-            />
-            我已完成
-          </label>
-          {task.needPhoto ? (
-            <>
-              <label>
-                上传图片
-                <input
-                  className="cursor-pointer"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  multiple
-                  onChange={(event) => handlePhotoChange(event.target.files)}
-                />
-                <span className="mt-2 block text-caption text-muted-soft">
-                  支持 jpg、jpeg、png、webp，单张不超过 5MB，最多 9 张
-                </span>
-              </label>
-              {photos.length > 0 ? (
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-                  {photos.map((photo) => (
-                    <div
-                      key={`${photo.name}-${photo.lastModified}`}
-                      className="rounded-[20px] border-2 border-[#eadfc3] bg-[#fffdf8] p-3"
-                    >
-                      <p className="truncate text-body-sm font-medium text-ink">{photo.name}</p>
-                      <p className="mt-1 text-caption text-muted-soft">{(photo.size / 1024 / 1024).toFixed(2)} MB</p>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </>
-          ) : (
-            <p className="rounded-[22px] bg-[#f7f0d8] p-4 text-body-sm text-muted">
-              这个任务不需要上传图片，提交后直接进入家长审核。
-            </p>
-          )}
-          <label>
-            孩子备注
-            <textarea
-              value={childNote}
-              onChange={(event) => setChildNote(event.target.value)}
-              placeholder="例如：第 5 题不会"
-              rows={4}
-              maxLength={500}
-            />
-          </label>
-          {error ? <p className="text-body-sm text-brand-coral">{error}</p> : null}
-          <div className="flex flex-wrap gap-3">
-            <AppButton type="submit" loading={isSubmitting} disabled={isSubmitting}>
-              {isSubmitting ? "上传并提交中..." : "提交打卡"}
-            </AppButton>
-            <AppButtonLink href={resultHref} variant="secondary">
-              查看提交结果
-            </AppButtonLink>
+      {isFutureTask ? (
+        <AppCard className="grid gap-3">
+          <AppCardTitle>先看看任务内容</AppCardTitle>
+          <p className="text-body-sm text-muted">
+            这个任务安排在 {formatDateTitle(task.dueDate)}，时间还没到哦。可以先了解要做什么，等到当天再来打卡提交。
+          </p>
+          <div className="rounded-[22px] bg-[#f7f0d8] p-4 text-body-sm text-[#725d42]">
+            {task.dueTime ? `当天 ${task.dueTime} 前完成。` : "到任务当天就可以提交打卡。"}
           </div>
-        </form>
-      </AppCard>
+        </AppCard>
+      ) : (
+        <AppCard>
+          <form className="grid gap-5" onSubmit={handleSubmit}>
+            <AppCardTitle>完成并打卡</AppCardTitle>
+            <label className="flex items-center gap-3 rounded-[22px] bg-[#f7f0d8] p-4">
+              <input
+                className="h-4 w-4"
+                type="checkbox"
+                checked={completed}
+                onChange={(event) => setCompleted(event.target.checked)}
+              />
+              我已完成
+            </label>
+            {task.needPhoto ? (
+              <>
+                <label>
+                  上传图片
+                  <input
+                    className="cursor-pointer"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    multiple
+                    onChange={(event) => handlePhotoChange(event.target.files)}
+                  />
+                  <span className="mt-2 block text-caption text-muted-soft">
+                    支持 jpg、jpeg、png、webp，单张不超过 5MB，最多 9 张
+                  </span>
+                </label>
+                {photos.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                    {photos.map((photo) => (
+                      <div
+                        key={`${photo.name}-${photo.lastModified}`}
+                        className="rounded-[20px] border-2 border-[#eadfc3] bg-[#fffdf8] p-3"
+                      >
+                        <p className="truncate text-body-sm font-medium text-ink">{photo.name}</p>
+                        <p className="mt-1 text-caption text-muted-soft">{(photo.size / 1024 / 1024).toFixed(2)} MB</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <p className="rounded-[22px] bg-[#f7f0d8] p-4 text-body-sm text-muted">
+                这个任务不需要上传图片，提交后直接进入家长审核。
+              </p>
+            )}
+            <label>
+              孩子备注
+              <textarea
+                value={childNote}
+                onChange={(event) => setChildNote(event.target.value)}
+                placeholder="例如：第 5 题不会"
+                rows={4}
+                maxLength={500}
+              />
+            </label>
+            {error ? <p className="text-body-sm text-brand-coral">{error}</p> : null}
+            <div className="flex flex-wrap gap-3">
+              <AppButton type="submit" loading={isSubmitting} disabled={isSubmitting}>
+                {isSubmitting ? "上传并提交中..." : "提交打卡"}
+              </AppButton>
+              <AppButtonLink href={resultHref} variant="secondary">
+                查看提交结果
+              </AppButtonLink>
+            </div>
+          </form>
+        </AppCard>
+      )}
     </div>
   );
+}
+
+function isFutureDueDate(dueDate?: string) {
+  return Boolean(dueDate && dueDate > getLocalDate());
+}
+
+function getLocalDate() {
+  const now = new Date();
+  const offsetMs = now.getTimezoneOffset() * 60 * 1000;
+  return new Date(now.getTime() - offsetMs).toISOString().slice(0, 10);
+}
+
+function formatDateTitle(date?: string) {
+  if (!date) {
+    return "之后";
+  }
+
+  const [year, month, day] = date.split("-");
+  return `${year} 年 ${Number.parseInt(month, 10)} 月 ${Number.parseInt(day, 10)} 日`;
 }

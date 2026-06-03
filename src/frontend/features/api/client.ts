@@ -11,6 +11,8 @@ import type {
 
 const TOKEN_KEY = "zhizhi_auth_token";
 const USER_KEY = "zhizhi_auth_user";
+export const AUTH_REDIRECT_NOTICE_KEY = "zhizhi_auth_redirect_notice";
+const AUTH_REQUIRED_MESSAGE = "请先登录后再继续使用。";
 
 type ApiErrorBody = {
   error?: {
@@ -18,6 +20,9 @@ type ApiErrorBody = {
     message?: string;
   };
 };
+
+const RETRYABLE_STATUS_CODES = new Set([408, 502, 503, 504]);
+const MAX_READ_ATTEMPTS = 3;
 
 export class ApiError extends Error {
   status: number;
@@ -67,6 +72,81 @@ export function clearSession() {
   window.localStorage.removeItem(USER_KEY);
 }
 
+function getFriendlyErrorMessage(status: number, code?: string, message?: string) {
+  if (status === 401 && code === "UNAUTHENTICATED") {
+    return AUTH_REQUIRED_MESSAGE;
+  }
+
+  if (status === 401 && code === "INVALID_CREDENTIALS") {
+    return "用户名或密码不正确，请重新输入。";
+  }
+
+  if (status === 403 && code === "FORBIDDEN") {
+    return "当前账号没有权限访问这个内容。";
+  }
+
+  return message ?? "请求失败，请稍后重试";
+}
+
+function redirectToLoginForAuthRequired() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  clearSession();
+  window.sessionStorage.setItem(AUTH_REDIRECT_NOTICE_KEY, AUTH_REQUIRED_MESSAGE);
+
+  const currentPath = `${window.location.pathname}${window.location.search}`;
+  if (window.location.pathname === "/login") {
+    return;
+  }
+
+  const loginUrl = `/login?next=${encodeURIComponent(currentPath)}`;
+  window.location.replace(loginUrl);
+}
+
+function getRequestMethod(init: RequestInit) {
+  return (init.method ?? "GET").toUpperCase();
+}
+
+function shouldRetryReadRequest(method: string, response: Response) {
+  return ["GET", "HEAD"].includes(method) && RETRYABLE_STATUS_CODES.has(response.status);
+}
+
+async function waitForRetry(attempt: number) {
+  const delayMs = Math.min(250 * 2 ** attempt, 1000);
+  await new Promise((resolve) => {
+    window.setTimeout(resolve, delayMs);
+  });
+}
+
+async function fetchWithRetry(path: string, init: RequestInit) {
+  const method = getRequestMethod(init);
+  const maxAttempts = ["GET", "HEAD"].includes(method) ? MAX_READ_ATTEMPTS : 1;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    try {
+      const response = await fetch(`/api/backend${path}`, init);
+
+      if (attempt < maxAttempts - 1 && shouldRetryReadRequest(method, response)) {
+        await waitForRetry(attempt);
+        continue;
+      }
+
+      return response;
+    } catch (error) {
+      if (attempt < maxAttempts - 1) {
+        await waitForRetry(attempt);
+        continue;
+      }
+
+      throw new ApiError(503, "网络连接中断，请稍后重试", "NETWORK_UNAVAILABLE");
+    }
+  }
+
+  throw new ApiError(503, "网络连接中断，请稍后重试", "NETWORK_UNAVAILABLE");
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   const token = getStoredToken();
@@ -80,7 +160,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(`/api/backend${path}`, {
+  const response = await fetchWithRetry(path, {
     ...init,
     headers,
     cache: "no-store"
@@ -94,11 +174,14 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       // Keep the fallback message below for non-JSON failures.
     }
 
-    throw new ApiError(
-      response.status,
-      body.error?.message ?? "请求失败，请稍后重试",
-      body.error?.code
-    );
+    const code = body.error?.code;
+    const message = getFriendlyErrorMessage(response.status, code, body.error?.message);
+
+    if (response.status === 401 && code === "UNAUTHENTICATED") {
+      redirectToLoginForAuthRequired();
+    }
+
+    throw new ApiError(response.status, message, code);
   }
 
   if (response.status === 204) {

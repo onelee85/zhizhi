@@ -1,6 +1,7 @@
 import { IncomingMessage, ServerResponse } from "node:http";
 import { AppError } from "./errors.js";
 import { sendError } from "./http.js";
+import { isTransientConnectionError, waitForRetry } from "./retry.js";
 
 export type RequestContext = {
   request: IncomingMessage;
@@ -53,7 +54,7 @@ export class Router {
             route.paramNames.map((name, index) => [name, decodeURIComponent(match[index + 1] ?? "")])
           );
 
-          await route.handler({
+          await this.handleRoute(route, method, {
             request,
             response,
             params,
@@ -66,6 +67,28 @@ export class Router {
       throw new AppError(404, "ROUTE_NOT_FOUND", "Route not found");
     } catch (error) {
       sendError(response, error);
+    }
+  }
+
+  private async handleRoute(route: Route, method: string, context: RequestContext) {
+    const maxAttempts = ["GET", "HEAD"].includes(method) ? 3 : 1;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      try {
+        await route.handler(context);
+        return;
+      } catch (error) {
+        if (attempt < maxAttempts - 1 && isTransientConnectionError(error)) {
+          await waitForRetry(attempt);
+          continue;
+        }
+
+        if (isTransientConnectionError(error)) {
+          throw new AppError(503, "TEMPORARY_CONNECTION_ERROR", "Temporary connection issue, please try again");
+        }
+
+        throw error;
+      }
     }
   }
 }

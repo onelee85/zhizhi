@@ -6,14 +6,18 @@ export default function HomePage() {
     <div className="grid gap-section">
       <section className="grid min-h-[560px] items-center gap-10 py-8 md:grid-cols-[1.1fr_0.9fr] md:py-section">
         <div className="grid gap-6">
-          <p className="w-fit rounded-pill bg-surface-card px-4 py-2 text-caption-uppercase text-muted">
-            家庭学习打卡 MVP
+          <p className="w-fit rounded-pill bg-canvas/90 px-4 py-2 text-caption font-semibold text-muted shadow-[inset_0_-3px_0_rgba(114,93,66,0.08)] ring-1 ring-hairline/70">
+            知知小助手 · Family Learning Trail
           </p>
-          <h1 className="max-w-4xl text-[44px] font-medium leading-[1.05] tracking-[-1.5px] text-ink md:text-display-xl">
-            每天的学习任务，变成一条清楚的完成线。
+          <h1 className="max-w-4xl text-[42px] font-black leading-[1.08] tracking-normal text-ink md:text-[68px]">
+            把今天的学习，
+            <span className="relative inline-block">
+              <span className="relative z-10">走成一条看得见的成长小路。</span>
+              <span className="absolute bottom-2 left-0 z-0 h-4 w-full rounded-pill bg-brand-mint/55 md:bottom-3 md:h-5" />
+            </span>
           </h1>
-          <p className="max-w-2xl text-body-md text-body md:text-title-md md:font-normal">
-            家长布置任务，孩子拍照打卡，系统记录提交状态，家长在同一个界面完成确认和补充反馈。
+          <p className="max-w-2xl text-[18px] font-medium leading-[1.85] tracking-normal text-body md:text-[22px]">
+            一张照片，是孩子完成任务的脚印；一次确认，是家长给出的温柔回声。任务、打卡、记录和反馈，都收进同一张清楚的家庭学习地图。
           </p>
           <div className="flex flex-wrap gap-3 pt-2">
             <ButtonLink href="/login">进入系统</ButtonLink>
@@ -26,13 +30,14 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="relative overflow-hidden rounded-xl bg-surface-soft p-5 md:p-8">
-          <div className="absolute right-6 top-6 h-20 w-20 rounded-full bg-brand-mint" />
-          <div className="absolute bottom-8 left-8 h-16 w-16 rounded-lg bg-brand-peach rotate-6" />
+        <div className="relative overflow-hidden rounded-xl bg-surface-soft p-5 shadow-[0_18px_0_rgba(114,93,66,0.08)] ring-1 ring-white/70 md:p-8">
+          <div className="absolute right-6 top-6 h-20 w-20 rounded-full bg-brand-mint/85 shadow-[inset_0_-8px_0_rgba(114,93,66,0.12)]" />
+          <div className="absolute bottom-8 left-8 h-16 w-16 rotate-6 rounded-lg bg-brand-peach shadow-[inset_0_-7px_0_rgba(114,93,66,0.14)]" />
+          <div className="absolute left-10 top-10 h-[78%] w-2 rounded-pill bg-canvas/80 shadow-[inset_0_0_0_1px_rgba(114,93,66,0.08)]" />
           <div className="relative grid gap-4">
-            <div className="rounded-xl bg-brand-lavender p-5">
-              <p className="text-caption-uppercase text-ink/70">今日计划</p>
-              <h2 className="mt-3 text-display-sm text-ink">数学口算 20 题</h2>
+            <div className="rounded-xl bg-brand-lavender p-5 shadow-[inset_0_-6px_0_rgba(114,93,66,0.12)]">
+              <p className="text-caption font-bold text-ink/70">08:00 今日第一站</p>
+              <h2 className="mt-3 text-[30px] font-black leading-tight tracking-normal text-ink">数学口算 20 题</h2>
               <div className="mt-5 grid gap-2 rounded-lg bg-canvas/85 p-4">
                 <div className="h-3 w-4/5 rounded-pill bg-ink/80" />
                 <div className="h-3 w-2/3 rounded-pill bg-ink/30" />
@@ -51,10 +56,10 @@ export default function HomePage() {
             </div>
             <div className="rounded-xl bg-canvas p-4 ring-1 ring-hairline">
               <div className="flex items-center justify-between gap-3">
-                <span className="text-title-sm text-ink">家长审核</span>
+                <span className="text-title-sm text-ink">家长回声</span>
                 <span className="rounded-pill bg-brand-mint/60 px-3 py-1 text-caption text-ink">通过</span>
               </div>
-              <p className="mt-2 text-body-sm text-muted">拍照内容清晰，任务完成记录已入库。</p>
+              <p className="mt-2 text-body-sm text-muted">拍照内容清晰，今天的小路又向前一格。</p>
             </div>
           </div>
         </div>

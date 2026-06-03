@@ -1,9 +1,9 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
-import { ApiError } from "@/features/api/client";
+import { AUTH_REDIRECT_NOTICE_KEY, ApiError } from "@/features/api/client";
 import { useAuth } from "@/features/auth/auth-context";
 
 export function LoginForm() {
@@ -12,6 +12,16 @@ export function LoginForm() {
   const [password, setPassword] = useState("password123");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const notice = window.sessionStorage.getItem(AUTH_REDIRECT_NOTICE_KEY);
+    if (!notice) {
+      return;
+    }
+
+    setError(notice);
+    window.sessionStorage.removeItem(AUTH_REDIRECT_NOTICE_KEY);
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
