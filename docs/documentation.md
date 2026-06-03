@@ -88,7 +88,7 @@
 
 - Alibaba Bailian AI 检查。
 
-前端通过 `src/frontend/app/api/backend/[...path]/route.ts` 提供同源代理，默认转发到 `http://localhost:4000`，可通过 `NEXT_PUBLIC_API_BASE_URL` 覆盖。图片展示路径 `/uploads/photos/<filename>` 由 `src/frontend/app/uploads/photos/[filename]/route.ts` 代理到后端本地文件读取接口。
+前端通过 `src/frontend/app/api/backend/[...path]/route.ts` 提供同源代理，默认转发到 `http://localhost:4000`，可通过服务端环境变量 `BACKEND_BASE_URL` 覆盖；旧的 `NEXT_PUBLIC_API_BASE_URL` 仍保留兼容。图片展示路径 `/uploads/photos/<filename>` 由 `src/frontend/app/uploads/photos/[filename]/route.ts` 代理到后端本地文件读取接口。
 
 ## 网络与重连策略
 
@@ -364,6 +364,14 @@ pnpm dev
 ```text
 http://localhost:3000
 ```
+
+同一 Wi-Fi 手机调试：
+
+- 前端 `pnpm dev` 和 `pnpm start` 默认监听 `0.0.0.0`。
+- 手机不要访问 `http://0.0.0.0:3000`，应访问电脑局域网 IP，例如 `http://192.168.1.23:3000`。
+- 手机只需要访问前端 `3000` 端口；API 和图片请求保持同源，由 Next 代理转发到本机后端 `http://localhost:4000`。
+- Next.js dev 模式通过 `allowedDevOrigins` 允许常见局域网私有 IP 段访问内部开发资源；修改后需要重启前端开发服务。
+- 如果手机无法打开页面，检查电脑和手机是否在同一 Wi-Fi、电脑防火墙是否允许局域网访问 `3000` 端口。
 
 阶段 1 页面验证路径：
 

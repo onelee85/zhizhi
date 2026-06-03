@@ -110,8 +110,10 @@ http://localhost:4000
 如需覆盖：
 
 ```bash
-NEXT_PUBLIC_API_BASE_URL=http://localhost:4000 pnpm dev
+BACKEND_BASE_URL=http://localhost:4000 pnpm dev
 ```
+
+`BACKEND_BASE_URL` 只在 Next 服务端代理读取，不会暴露给浏览器。旧的 `NEXT_PUBLIC_API_BASE_URL` 仍保留兼容，但本地调试优先使用 `BACKEND_BASE_URL`。
 
 测试账号：
 
@@ -151,6 +153,16 @@ pnpm dev
 http://localhost:3000
 ```
 
+同一 Wi-Fi 手机调试时，手机需要访问电脑局域网 IP，而不是 `0.0.0.0`：
+
+```text
+http://<电脑局域网IP>:3000
+```
+
+例如 `http://192.168.1.23:3000`。前端客户端请求保持同源 `/api/backend/*`，所以手机无需直接访问 `4000` 端口；请确保电脑防火墙允许局域网访问 `3000` 端口。
+
+Next.js dev 模式已在 `next.config.mjs` 中允许常见局域网私有 IP 段访问内部开发资源。修改电脑 IP 或配置后，需要重启 `pnpm dev`。
+
 ## 打包与生产启动
 
 生产打包：
@@ -170,6 +182,8 @@ pnpm start
 ```text
 http://localhost:3000
 ```
+
+局域网设备访问方式同开发模式：`http://<电脑局域网IP>:3000`。
 
 ## 部署说明
 

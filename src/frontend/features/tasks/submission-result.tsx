@@ -6,6 +6,7 @@ import { AppButton, AppButtonLink } from "@/components/ui/button";
 import { AppCard, AppCardTitle } from "@/components/ui/card";
 import { AppModal } from "@/components/ui/modal";
 import { ApiError, getTask } from "@/features/api/client";
+import { toCurrentOriginUrl } from "@/features/tasks/media-url";
 import { getImageCount, statusLabel, statusTone } from "@/features/tasks/status";
 import type { StudyTask } from "@/features/tasks/types";
 
@@ -138,21 +139,26 @@ export function SubmissionResult({
         <AppCardTitle>提交图片</AppCardTitle>
         <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3">
           {images.length > 0
-            ? images.map((image, index) => (
-                <a
-                  key={image.id}
-                  href={image.imageUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="group block"
-                >
-                  <img
-                    src={image.imageThumbUrl ?? image.imageUrl}
-                    alt={`提交图片 ${index + 1}`}
-                    className="aspect-[4/3] w-full rounded-[18px] border-2 border-[#eadfc3] object-cover transition group-hover:opacity-90"
-                  />
-                </a>
-              ))
+            ? images.map((image, index) => {
+                const imageUrl = toCurrentOriginUrl(image.imageUrl);
+                const thumbUrl = toCurrentOriginUrl(image.imageThumbUrl ?? image.imageUrl);
+
+                return (
+                  <a
+                    key={image.id}
+                    href={imageUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="group block"
+                  >
+                    <img
+                      src={thumbUrl}
+                      alt={`提交图片 ${index + 1}`}
+                      className="aspect-[4/3] w-full rounded-[18px] border-2 border-[#eadfc3] object-cover transition group-hover:opacity-90"
+                    />
+                  </a>
+                );
+              })
             : (
                 <div className="col-span-full flex aspect-[4/3] items-center justify-center rounded-[22px] border-2 border-dashed border-[#eadfc3] bg-canvas text-caption text-muted-soft">
                   暂无图片

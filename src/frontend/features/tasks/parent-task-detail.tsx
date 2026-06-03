@@ -7,6 +7,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { AppConfirmModal } from "@/components/ui/modal";
 import { ApiError, deleteTask, getTask, reviewTask } from "@/features/api/client";
+import { toCurrentOriginUrl } from "@/features/tasks/media-url";
 import { getImageCount, statusLabel, statusTone } from "@/features/tasks/status";
 import type { StudyTask } from "@/features/tasks/types";
 
@@ -149,15 +150,20 @@ export function ParentTaskDetail({ taskId, returnHref = "/parent" }: { taskId: s
           </dl>
           <div className="mt-5 grid grid-cols-3 gap-3">
             {images.length > 0
-              ? images.map((image) => (
-                  <a key={image.id} href={image.imageUrl} target="_blank" rel="noreferrer">
+              ? images.map((image) => {
+                  const imageUrl = toCurrentOriginUrl(image.imageUrl);
+                  const thumbUrl = toCurrentOriginUrl(image.imageThumbUrl ?? image.imageUrl);
+
+                  return (
+                  <a key={image.id} href={imageUrl} target="_blank" rel="noreferrer">
                     <img
-                      src={image.imageThumbUrl ?? image.imageUrl}
+                      src={thumbUrl}
                       alt="提交图片"
                       className="aspect-[4/3] w-full rounded-lg border border-hairline object-cover"
                     />
                   </a>
-                ))
+                  );
+                })
               : (
                   <div className="flex aspect-[4/3] items-center justify-center rounded-lg border border-dashed border-hairline bg-surface-soft text-caption text-muted-soft">
                     暂无图片
