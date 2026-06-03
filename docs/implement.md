@@ -2,6 +2,27 @@
 
 ## 2026-06-03
 
+- 完成历史任务归档前端实现。
+- 前端 API 客户端新增 `getHistoryTasks()`，接入 `GET /tasks/history`，并在 `StudyTask` 类型补充 `isArchived`、`confirmedAt` 和 `archivedAt` 元数据。
+- 新增 `/parent/history` 和 `/child/history` 历史任务页，复用 `TaskHistoryList` 展示已归档任务；家长端支持按孩子、开始日期和结束日期筛选，孩子端支持按日期范围筛选。
+- 家长任务清单页在日期 / 状态筛选区域旁新增【历史任务】入口；孩子任务清单页在任务日历入口附近新增【历史任务】入口。
+- 历史任务列表只读展示，点击后分别进入家长任务详情或孩子提交结果页，并通过 `from=history` 返回历史任务页。
+- 日历面板对已归档任务展示“已归档”标记，保持归档任务在月视图可见。
+- 本轮未修改接口路径、请求参数或响应数据结构；`docs/api.md` 和 `docs/prd.md` 无需更新。
+- 完成历史任务归档后端 API 第一轮实现。
+- 新增 `GET /tasks/history`：家长返回当前家庭已归档任务，孩子只返回自己的已归档任务；支持 `childUserId`、`startDate`、`endDate` 查询参数。
+- 归档按动态规则计算：任务状态为 `confirmed`，且最近一次家长 `pass` 审核时间超过 7 天；返回 `isArchived`、`confirmedAt` 和 `archivedAt` 元数据，不新增任务状态或积分流水。
+- 家长普通看板和今日任务查询默认过滤已归档任务；日历月视图继续返回已归档任务并标记归档元数据。
+- 后端新增 `TaskService` 归档单测，覆盖普通列表隐藏归档任务、历史列表返回归档任务、日历保留归档标记、孩子跨孩子访问拦截和家长跨家庭孩子筛选拦截。
+- 已使用 Node v22 执行 `pnpm build` 和 `pnpm test`，后端构建通过，20 个 node:test 用例全部通过。
+- 同步更新 `docs/api.md`、`docs/documentation.md` 和后端 OpenAPI 规范；本轮未修改 `docs/prd.md` 的产品行为定义。
+- 此前需求梳理轮次确认新增“历史任务归档”需求：家长确认完成超过 7 天的 `confirmed` 任务自动进入历史任务。
+- 明确归档只影响展示，不改变任务状态、积分流水、周报统计或审计口径；MVP 不支持手动提前归档、取消归档或批量归档。
+- 明确普通家长任务列表和孩子任务列表默认隐藏已归档任务；家长端和孩子端均新增【历史任务】入口。
+- 明确日历面板仍展示已归档任务，并用“已归档”标记区分。
+- 明确历史任务列表和详情只读，保留任务、提交照片、AI 检查、家长确认和积分信息。
+- 当时更新 `docs/prd.md`、`docs/documentation.md`、`docs/api.md` 和 `docs/plan.md`，补充历史任务归档规则、页面入口、验证范围和规划接口 `GET /tasks/history`。
+- 该需求梳理轮次仅完善需求和文档，未修改前后端代码，未执行构建或测试。
 - 支持同一 Wi-Fi 手机访问本地前端：前端 `pnpm dev` 和 `pnpm start` 默认使用 `next dev/start -H 0.0.0.0` 监听局域网入口。
 - 前端 `next.config.mjs` 新增 `allowedDevOrigins`，允许 `192.168.*.*`、`10.*.*.*` 和 `172.*.*.*` 访问 Next dev 内部资源，修复手机通过局域网 IP 打开页面后客户端未 hydration、点击登录退化成原生 `/login?` 跳转的问题。
 - 前端后端代理和图片代理新增服务端环境变量 `BACKEND_BASE_URL`，默认仍转发到 `http://localhost:4000`，避免把后端地址暴露给浏览器；旧 `NEXT_PUBLIC_API_BASE_URL` 保留兼容。

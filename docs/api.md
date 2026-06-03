@@ -107,7 +107,7 @@ Authorization: Bearer <token>
 
 ### GET /parent/dashboard - 家长看板
 
-获取家长看板数据，包括家庭全部任务统计等。
+获取家长看板数据，包括家庭未归档任务统计等。家长确认完成超过 7 天的任务默认不返回，应通过 `GET /tasks/history` 查询。
 
 **请求头:**
 ```
@@ -155,7 +155,7 @@ Authorization: Bearer <token>
 
 ### GET /tasks/today - 获取今日任务列表
 
-获取当前用户今日的任务列表。孩子端可通过查询参数同时返回逾期未完成任务。
+获取当前用户今日的任务列表。孩子端可通过查询参数同时返回逾期未完成任务。家长确认完成超过 7 天的任务默认不返回，应通过 `GET /tasks/history` 查询。
 
 **查询参数:**
 
@@ -202,7 +202,7 @@ GET /tasks/today?includeOverdueIncomplete=true&includeCompleted=true
 
 ### GET /tasks/calendar - 获取月视图任务列表
 
-按月份获取日历面板任务。家长返回当前家庭内该月份全部孩子任务；孩子只返回分配给自己的该月份任务。
+按月份获取日历面板任务。家长返回当前家庭内该月份全部孩子任务；孩子只返回分配给自己的该月份任务。日历面板承担历史查看能力，已归档任务仍返回，并通过 `isArchived` 和 `archivedAt` 标记。
 
 **查询参数:**
 
@@ -239,9 +239,78 @@ GET /tasks/calendar?month=2026-06
       "needAiCheck": false,
       "rewardPoints": 10,
       "status": "pending",
+      "isArchived": false,
+      "archivedAt": null,
       "createdAt": "2026-06-02T10:00:00.000Z",
       "updatedAt": "2026-06-02T10:00:00.000Z",
       "submission": null
+    }
+  ]
+}
+```
+
+### GET /tasks/history - 获取历史任务列表
+
+获取已归档任务。归档规则：任务状态为 `confirmed`，且家长确认通过时间超过 7 天。归档只影响展示，不改变任务状态、积分流水或周报统计。
+
+**查询参数:**
+
+| 参数 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `childUserId` | string | 否 | 仅家长端使用；筛选当前家庭内某个孩子的历史任务。 |
+| `startDate` | string | 否 | 任务日期起始值，格式 `YYYY-MM-DD`。 |
+| `endDate` | string | 否 | 任务日期结束值，格式 `YYYY-MM-DD`。 |
+
+**请求头:**
+```
+Authorization: Bearer <token>
+```
+
+**权限要求:**
+
+- 家长只能查看当前家庭的历史任务。
+- 孩子只能查看自己的历史任务。
+- 家长传入非当前家庭孩子的 `childUserId` 返回 `403 FORBIDDEN`。
+- 孩子传入其他孩子的 `childUserId` 返回 `403 FORBIDDEN`。
+
+**示例:**
+```
+GET /tasks/history?childUserId=child-1&startDate=2026-05-01&endDate=2026-05-31
+```
+
+**响应 (200):**
+```json
+{
+  "tasks": [
+    {
+      "id": "task-1",
+      "familyId": "family-1",
+      "childUserId": "child-1",
+      "creatorUserId": "parent-1",
+      "subject": "数学",
+      "taskType": "作业",
+      "title": "完成数学计算练习第 3 页",
+      "description": "完成第 3 页全部计算题，订正错题并圈出不会的题。",
+      "dueDate": "2026-05-20",
+      "dueTime": "20:30",
+      "needPhoto": true,
+      "needAiCheck": false,
+      "rewardPoints": 10,
+      "status": "confirmed",
+      "confirmedAt": "2026-05-21T12:00:00.000Z",
+      "isArchived": true,
+      "archivedAt": "2026-05-28T12:00:00.000Z",
+      "createdAt": "2026-05-20T10:00:00.000Z",
+      "updatedAt": "2026-05-21T12:00:00.000Z",
+      "submission": {
+        "id": "submission-1",
+        "taskId": "task-1",
+        "childUserId": "child-1",
+        "status": "submitted",
+        "childNote": "已完成全部题目",
+        "submittedAt": "2026-05-20T19:30:00.000Z",
+        "images": []
+      }
     }
   ]
 }

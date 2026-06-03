@@ -80,6 +80,15 @@ export const openApiSpec = {
             type: "string",
             enum: ["pending", "submitted", "ai_checking", "parent_review", "confirmed", "needs_resubmit"]
           },
+          isArchived: { type: "boolean", description: "是否已按历史任务规则归档。" },
+          confirmedAt: {
+            anyOf: [{ type: "string", format: "date-time" }, { type: "null" }],
+            description: "最近一次家长确认通过时间。"
+          },
+          archivedAt: {
+            anyOf: [{ type: "string", format: "date-time" }, { type: "null" }],
+            description: "动态计算的归档生效时间；未归档时为 null。"
+          },
           createdAt: { type: "string", format: "date-time" },
           updatedAt: { type: "string", format: "date-time" },
           submission: {
@@ -581,7 +590,7 @@ export const openApiSpec = {
       get: {
         tags: ["Tasks"],
         summary: "月视图任务列表",
-        description: "家长返回当前家庭该月份全部任务；孩子只返回分配给自己的该月份任务。",
+        description: "家长返回当前家庭该月份全部任务；孩子只返回分配给自己的该月份任务。日历仍返回已归档任务，并通过 isArchived/archivedAt 标记。",
         security: [{ bearerAuth: [] }],
         parameters: [
           {
@@ -595,6 +604,43 @@ export const openApiSpec = {
         responses: {
           "200": { description: "月视图任务列表" },
           "400": { description: "月份参数格式错误" }
+        }
+      }
+    },
+    "/tasks/history": {
+      get: {
+        tags: ["Tasks"],
+        summary: "历史任务列表",
+        description:
+          "返回已归档任务。归档规则为任务状态 confirmed，且家长确认通过时间超过 7 天；归档只影响展示，不改变任务状态或积分流水。",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "childUserId",
+            in: "query",
+            required: false,
+            schema: { type: "string" },
+            description: "仅家长端使用；筛选当前家庭内某个孩子的历史任务。孩子端传其他孩子 ID 会返回 403。"
+          },
+          {
+            name: "startDate",
+            in: "query",
+            required: false,
+            schema: { type: "string", format: "date" },
+            description: "按任务 dueDate 起始日期筛选，格式 YYYY-MM-DD。"
+          },
+          {
+            name: "endDate",
+            in: "query",
+            required: false,
+            schema: { type: "string", format: "date" },
+            description: "按任务 dueDate 结束日期筛选，格式 YYYY-MM-DD。"
+          }
+        ],
+        responses: {
+          "200": { description: "历史任务列表" },
+          "400": { description: "查询参数格式错误" },
+          "403": { description: "孩子跨孩子访问，或家长筛选非当前家庭孩子" }
         }
       }
     },

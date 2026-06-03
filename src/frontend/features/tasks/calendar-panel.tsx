@@ -232,6 +232,7 @@ export function TaskCalendarPanel({ role }: { role: UserRole }) {
                       >
                         {task.dueTime ? `${task.dueTime} ` : ""}
                         {task.title}
+                        {task.isArchived ? " · 已归档" : ""}
                       </Link>
                     ))}
                     {dayTasks.length > 3 ? (
@@ -306,6 +307,7 @@ function SelectedDatePanel({
             <div className="flex flex-wrap items-center gap-2">
               <Badge>{task.subject}</Badge>
               <Badge tone={statusTone[task.status]}>{statusLabel[task.status]}</Badge>
+              {task.isArchived ? <Badge tone="neutral">已归档</Badge> : null}
               {task.rewardPoints ? <Badge tone="success">+{task.rewardPoints} 积分</Badge> : null}
             </div>
             <Link href={getTaskHref(role, task)} className="mt-3 block text-title-sm text-ink hover:text-[#44816f]">

@@ -83,6 +83,9 @@ export function ChildTaskList() {
             <AppButtonLink href="/child/calendar" variant="secondary" className="w-full">
               任务日历
             </AppButtonLink>
+            <AppButtonLink href="/child/history" variant="secondary" className="w-full">
+              历史任务
+            </AppButtonLink>
             <AppButtonLink href="/child/wishes" variant="secondary" className="w-full">
               我的心愿
             </AppButtonLink>

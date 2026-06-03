@@ -9,7 +9,7 @@ export default async function ParentTaskDetailPage({
 }) {
   const { taskId } = await params;
   const { from } = await searchParams;
-  const returnHref = from === "calendar" ? "/parent/calendar" : "/parent";
+  const returnHref = from === "calendar" ? "/parent/calendar" : from === "history" ? "/parent/history" : "/parent";
 
   return <ParentTaskDetail taskId={taskId} returnHref={returnHref} />;
 }

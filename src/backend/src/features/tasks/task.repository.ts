@@ -48,6 +48,10 @@ type FamilyChildRow = RowDataPacket & {
   role: UserRole;
 };
 
+type TaskArchiveRow = RowDataPacket & {
+  confirmed_at: string | null;
+};
+
 export class TaskRepository {
   constructor(private readonly db: DbPool) {}
 
@@ -155,6 +159,18 @@ export class TaskRepository {
     );
 
     return rows.map(mapTask);
+  }
+
+  async getTaskConfirmedAt(taskId: string) {
+    const [rows] = await this.db.execute<TaskArchiveRow[]>(
+      `select max(reviewed_at) as confirmed_at
+       from parent_review
+       where task_id = :taskId
+         and review_result = 'pass'`,
+      { taskId }
+    );
+
+    return rows[0]?.confirmed_at ? toIsoDateTime(rows[0].confirmed_at) : undefined;
   }
 
   async listChildTasksByDateRange(familyId: string, childUserId: string, startDate: string, endDate: string) {

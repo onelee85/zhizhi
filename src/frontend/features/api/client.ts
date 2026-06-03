@@ -225,6 +225,23 @@ export async function getCalendarTasks(month: string) {
   return request<{ tasks: StudyTask[] }>(`/tasks/calendar?${params.toString()}`);
 }
 
+export async function getHistoryTasks(
+  options: { childUserId?: string; startDate?: string; endDate?: string } = {}
+) {
+  const params = new URLSearchParams();
+  if (options.childUserId) {
+    params.set("childUserId", options.childUserId);
+  }
+  if (options.startDate) {
+    params.set("startDate", options.startDate);
+  }
+  if (options.endDate) {
+    params.set("endDate", options.endDate);
+  }
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return request<{ tasks: StudyTask[] }>(`/tasks/history${query}`);
+}
+
 export async function getTask(taskId: string) {
   return request<{ task: StudyTask }>(`/tasks/${encodeURIComponent(taskId)}`);
 }

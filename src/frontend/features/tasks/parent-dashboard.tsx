@@ -141,7 +141,7 @@ export function ParentDashboardView() {
           <div>
             <AppCardTitle>任务列表</AppCardTitle>
           </div>
-          <div className="grid gap-3 md:min-w-[430px] md:grid-cols-[1fr_1fr_auto]">
+          <div className="grid gap-3 md:min-w-[520px] md:grid-cols-[1fr_1fr_auto_auto]">
             <label className="text-caption text-muted">
               日期
               <input
@@ -176,6 +176,11 @@ export function ParentDashboardView() {
                   清空
                 </AppButton>
               ) : null}
+            </div>
+            <div className="flex items-end">
+              <AppButtonLink href="/parent/history" variant="secondary" className="h-11 px-3">
+                历史任务
+              </AppButtonLink>
             </div>
           </div>
         </div>

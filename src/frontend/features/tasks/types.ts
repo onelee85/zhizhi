@@ -57,6 +57,9 @@ export type StudyTask = {
   needAiCheck?: boolean;
   rewardPoints?: number;
   status: TaskStatus;
+  isArchived?: boolean;
+  confirmedAt?: string | null;
+  archivedAt?: string | null;
   createdAt?: string;
   updatedAt?: string;
   submission?: TaskSubmission | null;

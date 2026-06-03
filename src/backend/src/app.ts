@@ -13,6 +13,7 @@ import { IncentiveService } from "./features/incentives/incentive.service.js";
 import {
   calendarTaskQuerySchema,
   createTaskSchema,
+  historyTaskQuerySchema,
   loginSchema,
   reviewTaskSchema,
   submitTaskSchema,
@@ -157,6 +158,18 @@ router.add("GET", "/tasks/calendar", async ({ request, response, query }) => {
   });
   sendJson(response, 200, {
     tasks: await taskService.listCalendarTasks(user, parsedQuery)
+  });
+});
+
+router.add("GET", "/tasks/history", async ({ request, response, query }) => {
+  const user = await requireUser(request.headers.authorization);
+  const parsedQuery = historyTaskQuerySchema.parse({
+    childUserId: query.get("childUserId") ?? undefined,
+    startDate: query.get("startDate") ?? undefined,
+    endDate: query.get("endDate") ?? undefined
+  });
+  sendJson(response, 200, {
+    tasks: await taskService.listHistoryTasks(user, parsedQuery)
   });
 });
 

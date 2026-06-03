@@ -7,6 +7,7 @@ import type { z } from "zod";
 import type {
   calendarTaskQuerySchema,
   createTaskSchema,
+  historyTaskQuerySchema,
   reviewTaskSchema,
   submitTaskSchema,
   updateTaskSchema
@@ -17,6 +18,7 @@ type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
 type SubmitTaskInput = z.infer<typeof submitTaskSchema>;
 type ReviewTaskInput = z.infer<typeof reviewTaskSchema>;
 type CalendarTaskQuery = z.infer<typeof calendarTaskQuerySchema>;
+type HistoryTaskQuery = z.infer<typeof historyTaskQuerySchema>;
 
 export class TaskService {
   constructor(
@@ -34,7 +36,7 @@ export class TaskService {
         ? await this.repository.listTodayTasks(user.familyId, user.id, today, options)
         : await this.repository.listFamilyTodayTasks(user.familyId, today);
 
-    return Promise.all(tasks.map((task) => this.withSubmission(task)));
+    return this.excludeArchived(await Promise.all(tasks.map((task) => this.withSubmission(task))));
   }
 
   async getTask(user: User, taskId: string) {
@@ -51,6 +53,43 @@ export class TaskService {
         : await this.repository.listFamilyTasksByDateRange(user.familyId, startDate, endDate);
 
     return Promise.all(tasks.map((task) => this.withSubmission(task)));
+  }
+
+  async listHistoryTasks(user: User, query: HistoryTaskQuery) {
+    if (user.role === "child" && query.childUserId && query.childUserId !== user.id) {
+      throw new AppError(403, "FORBIDDEN", "Child cannot access another child's history");
+    }
+
+    if (user.role === "parent" && query.childUserId) {
+      if (!(await this.repository.isFamilyChild(user.familyId, query.childUserId))) {
+        throw new AppError(403, "FORBIDDEN", "Child is outside current family");
+      }
+    }
+
+    const tasks = await this.repository.listFamilyTasks(user.familyId);
+
+    const childUserId = user.role === "child" ? user.id : query.childUserId;
+    const filteredTasks = tasks.filter((task) => {
+      if (childUserId && task.childUserId !== childUserId) {
+        return false;
+      }
+
+      if (query.startDate && task.dueDate < query.startDate) {
+        return false;
+      }
+
+      if (query.endDate && task.dueDate > query.endDate) {
+        return false;
+      }
+
+      return true;
+    });
+
+    const enrichedTasks = await Promise.all(filteredTasks.map((task) => this.withSubmission(task)));
+
+    return enrichedTasks
+      .filter((task) => task.isArchived)
+      .sort((left, right) => compareHistoryTasks(left, right));
   }
 
   async createTask(parent: User, input: CreateTaskInput) {
@@ -182,8 +221,10 @@ export class TaskService {
       throw new AppError(403, "FORBIDDEN", "Only parents can view dashboard");
     }
 
-    const tasks = await Promise.all(
-      (await this.repository.listFamilyTasks(parent.familyId)).map((task) => this.withSubmission(task))
+    const tasks = this.excludeArchived(
+      await Promise.all(
+        (await this.repository.listFamilyTasks(parent.familyId)).map((task) => this.withSubmission(task))
+      )
     );
     const summary = {
       total: tasks.length,
@@ -202,9 +243,11 @@ export class TaskService {
   private async withSubmission(task: StudyTask) {
     const submission = await this.repository.getLatestSubmission(task.id);
     const images = submission ? await this.repository.listImages(submission.id) : [];
+    const archive = await this.getArchiveMetadata(task);
 
     return {
       ...task,
+      ...archive,
       submission: submission
         ? {
             ...submission,
@@ -212,6 +255,22 @@ export class TaskService {
           }
         : null
     };
+  }
+
+  private async getArchiveMetadata(task: StudyTask) {
+    const confirmedAt = task.status === "confirmed" ? await this.repository.getTaskConfirmedAt(task.id) : undefined;
+    const archivedAtCandidate = confirmedAt ? addDays(confirmedAt, 7) : null;
+    const isArchived = Boolean(archivedAtCandidate && Date.parse(archivedAtCandidate) < Date.now());
+
+    return {
+      isArchived,
+      confirmedAt: confirmedAt ?? null,
+      archivedAt: isArchived ? archivedAtCandidate : null
+    };
+  }
+
+  private excludeArchived<T extends { isArchived: boolean }>(tasks: T[]) {
+    return tasks.filter((task) => !task.isArchived);
   }
 
   private assertFamilyAccess(user: User, task: StudyTask) {
@@ -241,4 +300,25 @@ function getMonthRange(month: string) {
 
 function isIncompleteTask(task: StudyTask) {
   return task.status === "pending" || task.status === "needs_resubmit";
+}
+
+function addDays(iso: string, days: number) {
+  const date = new Date(iso);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString();
+}
+
+function compareHistoryTasks(
+  left: StudyTask & { archivedAt: string | null },
+  right: StudyTask & { archivedAt: string | null }
+) {
+  if (left.archivedAt !== right.archivedAt) {
+    return (right.archivedAt ?? "").localeCompare(left.archivedAt ?? "");
+  }
+
+  if (left.dueDate !== right.dueDate) {
+    return right.dueDate.localeCompare(left.dueDate);
+  }
+
+  return right.createdAt.localeCompare(left.createdAt);
 }
