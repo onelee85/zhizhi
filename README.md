@@ -1,193 +1,253 @@
 # 知知小助手
 
-一个面向家庭的 AI 学习打卡助手，帮助家长布置任务、孩子打卡上传、AI 辅助检查，并生成每周学习报告。
+知知小助手是一个面向家庭的学习任务打卡 MVP。它围绕“家长创建任务、孩子查看并打卡、上传完成照片、家长审核确认、积分奖励、心愿兑换、日历查看、历史归档”建立一个可追踪的家庭学习闭环。
 
-## 项目简介
+## 当前状态
 
-知知小助手是一个家庭学习管理 MVP 项目，通过"家长计划 → 孩子执行 → 拍照打卡 → AI 辅助检查 → 家长确认 → 每周复盘 → 下周调整"的闭环，帮助家长降低检查成本，帮助孩子建立学习执行习惯。
+项目已完成任务打卡主流程、MySQL 应用用户登录、前后端 API 联调、本地照片上传、积分心愿激励、日历面板和历史任务归档。
 
-### 核心功能
+当前仍未接入 Alibaba Bailian AI 检查、错题提取、薄弱点分析和周报生成；这些能力在后续阶段规划中。
 
-- **家长端**：创建每日学习任务、查看今日看板、审核孩子提交、查看每周报告
-- **孩子端**：查看今日任务、拍照打卡提交、查看提交结果
-- **AI 能力**：图片理解、完成度检查、异常识别、错题提取、周报生成
-- **数据沉淀**：任务记录、提交记录、错题本、薄弱点分析
+## 核心功能
+
+- 家长使用用户名和密码登录，创建、编辑、删除未完成任务。
+- 孩子查看今日任务、逾期未完成任务和已完成任务。
+- 孩子按任务要求上传打卡照片，或提交无需照片的任务。
+- 家长查看提交记录并审核通过或要求补充。
+- 家长审核通过后按任务配置发放积分。
+- 孩子提交心愿，家长设置所需积分、通过或驳回。
+- 孩子申请兑换心愿，家长确认兑换并扣减积分。
+- 家长和孩子查看任务日历；家长可从日历按日期创建任务。
+- 家长确认完成超过 7 天的任务自动进入历史任务列表，日历仍保留归档标记。
 
 ## 技术栈
 
-### 前端
-- **框架**：Next.js 14 App Router
-- **语言**：TypeScript
-- **样式**：Tailwind CSS
-- **UI**：shadcn/ui
+| 模块 | 技术 |
+| --- | --- |
+| 前端 | Next.js 16 App Router, React 19, TypeScript, Tailwind CSS, animal-island-ui |
+| 后端 | Node.js 22, TypeScript, 原生 HTTP Server, 自定义 Router |
+| 数据库 | MySQL, mysql2 |
+| 校验 | Zod |
+| 认证 | 应用用户体系，用户名 + 密码，Bearer Token |
+| 测试 | Node test, Playwright Test |
 
-### 后端
-- **运行时**：Node.js
-- **语言**：TypeScript
-- **Web框架**：原生 Node.js HTTP Server + 自定义 Router
-- **验证**：Zod
-- **架构**：Service + Repository Pattern
+## 项目结构
 
-### 基础设施
-- **数据库**：MySQL
-- **对象存储**：Qiniu Cloud Storage
-- **AI 服务**：Alibaba Bailian
-- **CI/CD**：GitHub Actions
+```text
+zhizhi/
+├── docs/                         # 产品、API、实施和项目文档
+├── src/
+│   ├── frontend/                 # Next.js 前端应用
+│   │   ├── app/                  # 路由、布局、route handlers
+│   │   ├── components/ui/        # 可复用 UI 封装
+│   │   ├── features/             # 业务模块 UI 与前端 API client
+│   │   └── DESIGN.md             # 前端设计说明
+│   └── backend/                  # 后端服务
+│       ├── db/                   # schema、seed、迁移
+│       └── src/
+│           ├── features/         # service + repository 业务模块
+│           ├── server/           # 认证、数据库、上传、环境配置
+│           ├── shared/           # 路由、错误、HTTP、重试工具
+│           └── docs/             # OpenAPI 和 Swagger UI
+├── tests/e2e/                    # Playwright E2E 测试
+├── package.json                  # 根目录 E2E 脚本
+├── playwright.config.ts
+└── AGENTS.md                     # 项目协作与编码规则
+```
 
-## 快速开始
+## 环境要求
 
-### 环境要求
+- Node.js v22
+- pnpm
+- MySQL 5.7+/8.x 或兼容版本
 
-- Node.js 22
-- pnpm 8+
-- MySQL 8+ (可选，当前使用内存数据)
-
-### 安装与运行
-
-#### 前端
+建议使用 nvm：
 
 ```bash
-cd src/frontend
+source ~/.nvm/nvm.sh
 nvm use v22
+```
+
+## 初始化数据库
+
+后端 schema 位于 `src/backend/db/schema.sql`，包含建库、建表和 Demo seed。
+
+```bash
+cd src/backend
+mysql -h 127.0.0.1 -u root -p < db/schema.sql
+```
+
+Demo 账号：
+
+| 角色 | 用户名 | 密码 |
+| --- | --- | --- |
+| 家长 | `parent_demo` | `password123` |
+| 孩子 | `child_demo` | `password123` |
+
+## 后端配置
+
+后端会自动读取 `src/backend/.env.local` 和 `src/backend/.env`。已存在的 shell 环境变量优先级更高。
+
+常用环境变量：
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `HOST` | `0.0.0.0` | 后端监听地址 |
+| `PORT` | `4000` | 后端端口 |
+| `MYSQL_HOST` | `127.0.0.1` | MySQL 地址 |
+| `MYSQL_PORT` | `3306` | MySQL 端口 |
+| `MYSQL_DATABASE` | `zhizhi` | 数据库名 |
+| `MYSQL_ACCOUNT` | `root` | 数据库账号 |
+| `MYSQL_PASSWORD` | 空 | 数据库密码 |
+| `MYSQL_CONNECTION_LIMIT` | `10` | 连接池大小 |
+
+敏感配置只允许放在服务端环境中，不要暴露给前端客户端。
+
+## 本地启动
+
+先启动后端：
+
+```bash
+cd src/backend
 pnpm install
 pnpm dev
 ```
 
-访问：http://localhost:3000
+后端默认地址：
 
-同一 Wi-Fi 手机调试时，前端服务会监听 `0.0.0.0`，手机不要访问 `0.0.0.0`，需要访问电脑的局域网 IP：
+```text
+http://localhost:4000
+```
+
+再启动前端：
+
+```bash
+cd src/frontend
+pnpm install
+pnpm dev
+```
+
+前端默认地址：
+
+```text
+http://localhost:3000
+```
+
+前端通过同源代理 `/api/backend/*` 访问后端，默认转发到 `http://localhost:4000`。如需覆盖：
+
+```bash
+BACKEND_BASE_URL=http://localhost:4000 pnpm dev
+```
+
+同一 Wi-Fi 手机调试时，访问电脑局域网 IP：
 
 ```text
 http://<电脑局域网IP>:3000
 ```
 
-例如 `http://192.168.1.23:3000`。手机只需要访问前端地址，后端请求会由 Next 同源代理转发到本机后端。
+不要用 `http://0.0.0.0:3000` 作为浏览器访问地址。
 
-#### 后端
+## 常用命令
+
+后端：
 
 ```bash
 cd src/backend
-nvm use v22
-pnpm install
-pnpm dev
+pnpm typecheck
+pnpm build
+pnpm test
 ```
 
-访问：http://localhost:4000
+前端：
 
-### 测试账号
-
-| 角色 | 用户名 | 密码 |
-|------|--------|------|
-| 家长 | parent_demo | password123 |
-| 孩子 | child_demo | password123 |
-
-## 项目结构
-
-```
-zhizhi/
-├── docs/                    # 项目文档
-│   ├── api.md             # API 文档
-│   ├── prd.md             # 产品需求文档
-│   ├── plan.md            # 研发计划
-│   ├── implement.md       # 实施记录
-│   └── documentation.md   # 文档索引
-├── src/
-│   ├── frontend/          # 前端应用
-│   │   ├── app/          # Next.js App Router
-│   │   ├── components/   # UI 组件
-│   │   ├── features/     # 业务模块
-│   │   └── lib/          # 工具库
-│   └── backend/          # 后端服务
-│       ├── src/
-│       │   ├── app.ts    # 应用入口
-│       │   ├── domain/   # 领域类型
-│       │   ├── features/ # 业务模块
-│       │   ├── server/   # 服务基础设施
-│       │   ├── shared/   # 共享工具
-│       │   └── docs/     # API 文档
+```bash
+cd src/frontend
+pnpm typecheck
+pnpm build
 ```
 
-## 核心流程
+E2E：
 
-### 任务打卡闭环
-
-```
-家长创建任务 → 孩子查看任务 → 拍照打卡提交 → AI 检查 → 家长审核确认 → 任务完成
-                                                          ↓
-                                                    需补充 → 重新提交
+```bash
+pnpm test:e2e
 ```
 
-### 状态流转
+Playwright 默认使用 `http://localhost:3000`。如需指定：
 
-**任务状态**：
+```bash
+PLAYWRIGHT_BASE_URL=http://localhost:3000 pnpm test:e2e
 ```
-待完成 → 已提交 → AI 检查中 → 待家长确认 → 已确认
-                                    ↓
-                                  需补充 → 重新提交
-```
+
+## API 文档
+
+后端启动后可访问：
+
+- Swagger UI: [http://localhost:4000/docs](http://localhost:4000/docs)
+- OpenAPI JSON: [http://localhost:4000/openapi.json](http://localhost:4000/openapi.json)
+- 健康检查: [http://localhost:4000/health](http://localhost:4000/health)
+
+主要接口：
+
+- `POST /auth/login`
+- `GET /auth/me`
+- `GET /parent/dashboard`
+- `GET /tasks/today`
+- `GET /tasks/calendar`
+- `GET /tasks/history`
+- `POST /tasks`
+- `GET /tasks/:taskId`
+- `PATCH /tasks/:taskId`
+- `DELETE /tasks/:taskId`
+- `POST /tasks/:taskId/submissions`
+- `POST /uploads/photos`
+- `POST /tasks/:taskId/reviews`
+- `GET /points/accounts/:childUserId`
+- `GET /wishes`
+- `POST /wishes`
+- `GET /wishes/:wishId`
+- `PATCH /wishes/:wishId`
+- `DELETE /wishes/:wishId`
+
+完整说明见 [docs/api.md](./docs/api.md)。
+
+## 核心规则
+
+- `src/frontend/app/` 只放路由、布局、页面和 route handlers，不直接堆业务逻辑。
+- 业务 UI、服务调用和类型放在 `src/frontend/features/`。
+- 后端业务使用 service + repository pattern。
+- 所有 API 输入使用 Zod 校验。
+- 所有任务、照片、AI 检查、积分、心愿和日历数据必须归属到家庭。
+- 数据库写入必须验证 authenticated user、role 和 family 权限。
+- Alibaba Bailian 调用必须运行在服务端，不能暴露密钥。
 
 ## 文档
 
-- [产品需求文档 (PRD)](./docs/prd.md)
+- [产品需求 PRD](./docs/prd.md)
 - [API 文档](./docs/api.md)
 - [实施记录](./docs/implement.md)
+- [项目文档](./docs/documentation.md)
 - [研发计划](./docs/plan.md)
-- [后端 README](./src/backend/README.md)
 - [前端 README](./src/frontend/README.md)
+- [后端 README](./src/backend/README.md)
 
-## API 接口
+## 开发边界
 
-后端提供 RESTful API，主要接口包括：
+已实现：
 
-- `POST /auth/login` - 用户登录
-- `GET /auth/me` - 获取当前用户
-- `GET /parent/dashboard` - 家长看板
-- `GET /tasks/today` - 今日任务列表
-- `POST /tasks` - 创建任务
-- `GET /tasks/:taskId` - 任务详情
-- `PATCH /tasks/:taskId` - 更新任务
-- `DELETE /tasks/:taskId` - 删除任务
-- `POST /tasks/:taskId/submissions` - 提交打卡
-- `POST /tasks/:taskId/reviews` - 家长审核
+- MySQL 登录与任务持久化
+- 前端同源后端代理
+- 本地照片上传与读取
+- 任务创建、编辑、删除、提交、审核
+- 积分账户、积分流水、心愿审核和兑换
+- 日历面板
+- 历史任务归档
+- 后端 service 单测和前端 E2E 测试
 
-详细文档请参考：
-- [API 文档](./docs/api.md)
-- Swagger UI: http://localhost:4000/docs
-- OpenAPI JSON: http://localhost:4000/openapi.json
+未实现或待完善：
 
-## 开发计划
-
-### MVP 阶段 1 (当前)
-✅ 前端页面骨架
-✅ 后端接口服务
-✅ 内存数据实现
-✅ API 文档 (Swagger)
-
-### MVP 阶段 2
-- [ ] MySQL 数据持久化
-- [ ] 图片上传 (Qiniu)
-- [ ] 前端对接后端 API
-- [ ] 完整认证会话
-
-### MVP 阶段 3
-- [ ] AI 检查 (Alibaba Bailian)
-- [ ] 错题记录
-- [ ] 周报生成
-
-## 工程约束
-
-- 使用 TypeScript 严格模式
-- 使用 Zod 进行请求验证
-- 采用 Service + Repository 架构模式
-- 所有数据库写入必须检查家庭权限
-- 所有 AI 输出必须保存原始结果
-- 不将业务逻辑直接放在页面组件中
-- 不向前端暴露密钥
-
-## 贡献指南
-
-请先阅读 [AGENTS.md](./AGENTS.md) 了解项目规范和约束。
-
-## 许可证
-
-MIT License
+- Alibaba Bailian AI 完成度检查
+- 错题提取和薄弱点分析
+- 周报生成
+- 生产级会话持久化
+- 家庭孩子列表接口
+- GitHub Actions 流水线
