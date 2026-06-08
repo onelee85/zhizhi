@@ -65,23 +65,139 @@ describe("IncentiveService", () => {
     const service = new IncentiveService(
       mockRepository({
         findWishById: async () => approvedWish,
-        getOrCreateAccount: async () => ({
-          id: "account-1",
-          familyId: "family-1",
-          childUserId: "child-1",
-          balance: 10,
-          totalEarned: 10,
-          totalSpent: 0,
-          createdAt: "2026-06-01T00:00:00.000Z",
-          updatedAt: "2026-06-01T00:00:00.000Z"
-        }),
-        listLedger: async () => []
+        requestRedeem: async () => {
+          throw new AppError(409, "INSUFFICIENT_POINTS", "Current points are not enough for this wish");
+        }
       }) as IncentiveRepository
     );
 
     await assert.rejects(() => service.requestRedeem(child, "wish-1"), (error) => {
       assert.equal(error instanceof AppError, true);
       assert.equal((error as AppError).code, "INSUFFICIENT_POINTS");
+      return true;
+    });
+  });
+
+  it("returns the debit ledger when a child requests redemption", async () => {
+    const debitLedger = {
+      id: "ledger-1",
+      familyId: "family-1",
+      childUserId: "child-1",
+      changeAmount: -50,
+      balanceAfter: 20,
+      reason: "wish_redeem" as const,
+      sourceType: "wish" as const,
+      sourceId: "request-1",
+      operatorUserId: "child-1",
+      createdAt: "2026-06-02T00:00:00.000Z"
+    };
+    const service = new IncentiveService(
+      mockRepository({
+        findWishById: async () => approvedWish,
+        requestRedeem: async () => ({
+          wish: {
+            ...approvedWish,
+            status: "redeem_requested",
+            currentRedeemRequestId: "request-1"
+          },
+          ledger: debitLedger
+        })
+      }) as IncentiveRepository
+    );
+
+    const result = await service.requestRedeem(child, "wish-1");
+
+    assert.equal(result.wish.status, "redeem_requested");
+    assert.equal(result.ledger, debitLedger);
+  });
+
+  it("confirms redemption without creating another point ledger", async () => {
+    const requestedWish: Wish = {
+      ...approvedWish,
+      status: "redeem_requested",
+      currentRedeemRequestId: "request-1"
+    };
+    const service = new IncentiveService(
+      mockRepository({
+        findWishById: async () => requestedWish,
+        confirmRedeem: async () => ({ ...requestedWish, status: "redeemed" })
+      }) as IncentiveRepository
+    );
+
+    const result = await service.confirmRedeem(parent, "wish-1");
+
+    assert.equal(result.status, "redeemed");
+  });
+
+  it("returns the refund ledger and makes a rejected redemption redeemable again", async () => {
+    const requestedWish: Wish = {
+      ...approvedWish,
+      status: "redeem_requested",
+      currentRedeemRequestId: "request-1"
+    };
+    const refundLedger = {
+      id: "ledger-2",
+      familyId: "family-1",
+      childUserId: "child-1",
+      changeAmount: 50,
+      balanceAfter: 70,
+      reason: "wish_refund" as const,
+      sourceType: "wish" as const,
+      sourceId: "request-1",
+      operatorUserId: "parent-1",
+      createdAt: "2026-06-02T01:00:00.000Z"
+    };
+    const service = new IncentiveService(
+      mockRepository({
+        findWishById: async () => requestedWish,
+        rejectRedeem: async () => ({
+          wish: {
+            ...approvedWish,
+            status: "approved",
+            currentRedeemRequestId: undefined
+          },
+          ledger: refundLedger
+        })
+      }) as IncentiveRepository
+    );
+
+    const result = await service.rejectRedeem(parent, "wish-1");
+
+    assert.equal(result.wish.status, "approved");
+    assert.equal(result.ledger, refundLedger);
+  });
+
+  it("restores a legacy redemption request without creating a refund ledger", async () => {
+    const legacyRequestedWish: Wish = {
+      ...approvedWish,
+      status: "redeem_requested"
+    };
+    const service = new IncentiveService(
+      mockRepository({
+        findWishById: async () => legacyRequestedWish,
+        rejectRedeem: async () => ({
+          wish: { ...approvedWish, status: "approved" },
+          ledger: null
+        })
+      }) as IncentiveRepository
+    );
+
+    const result = await service.rejectRedeem(parent, "wish-1");
+
+    assert.equal(result.wish.status, "approved");
+    assert.equal(result.ledger, null);
+  });
+
+  it("blocks a second redemption decision after the wish leaves requested status", async () => {
+    const service = new IncentiveService(
+      mockRepository({
+        findWishById: async () => approvedWish
+      }) as IncentiveRepository
+    );
+
+    await assert.rejects(() => service.rejectRedeem(parent, "wish-1"), (error) => {
+      assert.equal(error instanceof AppError, true);
+      assert.equal((error as AppError).code, "WISH_REDEEM_NOT_REJECTABLE");
       return true;
     });
   });

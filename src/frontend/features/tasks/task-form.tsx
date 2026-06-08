@@ -5,15 +5,12 @@ import { useRouter } from "next/navigation";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { ApiError, createTask, updateTask } from "@/features/api/client";
+import { getBusinessDate } from "@/lib/business-date";
 import type { Subject, StudyTask, TaskType } from "@/features/tasks/types";
 
 const subjects: Subject[] = ["语文", "数学", "英语", "其他"];
 const taskTypes: TaskType[] = ["作业", "预习", "复习", "错题", "阅读", "背诵", "练习"];
-const demoChildren = [{ id: "child-1", nickname: "孩子 Demo" }];
-
-function today() {
-  return new Date().toISOString().slice(0, 10);
-}
+const children = [{ id: "child-1", nickname: "孩子" }];
 
 export function TaskForm({
   task,
@@ -26,15 +23,15 @@ export function TaskForm({
 }) {
   const router = useRouter();
   const isEdit = Boolean(task);
-  const [childUserId, setChildUserId] = useState(task?.childUserId ?? demoChildren[0].id);
+  const [childUserId, setChildUserId] = useState(task?.childUserId ?? children[0].id);
   const [subject, setSubject] = useState<Subject>(task?.subject ?? "数学");
   const [taskType, setTaskType] = useState<TaskType>(task?.taskType ?? "练习");
   const [title, setTitle] = useState(task?.title ?? "");
   const [description, setDescription] = useState(task?.description ?? "");
-  const [dueDate, setDueDate] = useState(task?.dueDate ?? initialDueDate ?? today());
+  const [dueDate, setDueDate] = useState(task?.dueDate ?? initialDueDate ?? getBusinessDate());
   const [dueTime, setDueTime] = useState(task?.dueTime ?? "20:30");
   const [needPhoto, setNeedPhoto] = useState(task?.needPhoto ?? true);
-  const [needAiCheck, setNeedAiCheck] = useState(task?.needAiCheck ?? false);
+  const needAiCheck = false;
   const [rewardPoints, setRewardPoints] = useState(String(task?.rewardPoints ?? 0));
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -105,7 +102,7 @@ export function TaskForm({
         <p className="text-caption-uppercase text-ink/65">Task editor</p>
         <h1 className="mt-3 text-display-md text-ink">{isEdit ? "编辑学习任务" : "创建学习任务"}</h1>
         <p className="mt-3 max-w-2xl text-body-md text-ink/75">
-          {isEdit ? "修改任务信息后保存。" : "保存后会写入后端任务接口。"}
+          {isEdit ? "修改任务信息后保存。" : "安排孩子的学习内容、时间和奖励。"}
         </p>
       </div>
 
@@ -116,7 +113,7 @@ export function TaskForm({
             <label>
               孩子
               <select value={childUserId} onChange={(event) => setChildUserId(event.target.value)}>
-                {demoChildren.map((child) => (
+                {children.map((child) => (
                   <option key={child.id} value={child.id}>
                     {child.nickname}
                   </option>
@@ -184,14 +181,15 @@ export function TaskForm({
               />
               需要拍照
             </label>
-            <label className="flex items-center gap-3">
+            <label className="flex items-center gap-3 text-muted-soft">
               <input
                 className="h-4 w-4"
                 type="checkbox"
-                checked={needAiCheck}
-                onChange={(event) => setNeedAiCheck(event.target.checked)}
+                checked={false}
+                disabled
+                onChange={() => undefined}
               />
-              开启 AI 检查
+              AI 检查（暂未开放）
             </label>
           </div>
           {error ? <p className="text-body-sm text-brand-coral">{error}</p> : null}

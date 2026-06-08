@@ -42,7 +42,7 @@ class AuthPage {
     ]);
 
     await expect(this.page).toHaveURL(new RegExp(`${expectedPath}$`));
-    await expect(this.page.getByText(expectedRole === "parent" ? "家长 Demo" : "孩子 Demo")).toBeVisible();
+    await expect(this.page.getByRole("button", { name: "退出" })).toBeVisible();
   }
 }
 
@@ -106,7 +106,8 @@ class CalendarPage extends AuthenticatedApp {
   }
 
   async selectDate(date: string) {
-    await this.page.getByLabel(`选择 ${date}`).click({ force: true });
+    const dayNumber = String(Number.parseInt(date.slice(-2), 10));
+    await this.page.getByRole("button", { name: dayNumber, exact: true }).click();
     await expect(this.page.getByLabel(`选择 ${date}`)).toHaveAttribute("aria-pressed", "true");
   }
 
@@ -245,6 +246,27 @@ test.describe("日历面板前端流程", () => {
     await expect(page.getByText("时间还没到哦")).toBeVisible();
     await expect(page.getByRole("button", { name: "提交打卡" })).toHaveCount(0);
   });
+
+  test("390px 日历使用紧凑日期格且页面无横向滚动", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const auth = new AuthPage(page);
+    const calendar = new CalendarPage(page);
+
+    await auth.loginAsParent();
+    await calendar.gotoParentCalendar();
+
+    const monthNavigation = page.getByTestId("calendar-month-navigation");
+    await expect(monthNavigation.getByRole("button", { name: "上月" })).toBeVisible();
+    await expect(monthNavigation.getByRole("button", { name: "今天" })).toBeVisible();
+    await expect(monthNavigation.getByRole("button", { name: "下月" })).toBeVisible();
+
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+    await expect(page.getByRole("navigation").getByText("任务", { exact: true })).toBeVisible();
+    await expect(page.getByRole("navigation").getByText("日历", { exact: true })).toBeVisible();
+    await expect(page.getByRole("navigation").getByText("心愿", { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: /在 .* 创建任务/ }).first()).toBeHidden();
+  });
 });
 
 function dateInCurrentMonth(day: number) {
@@ -265,14 +287,20 @@ function formatMonthTitle(month: string) {
 }
 
 function localDate() {
-  const now = new Date();
-  const offsetMs = now.getTimezoneOffset() * 60 * 1000;
-  return new Date(now.getTime() - offsetMs).toISOString().slice(0, 10);
+  return businessDate(new Date());
 }
 
 function addDays(days: number) {
-  const next = new Date();
-  next.setDate(next.getDate() + days);
-  const offsetMs = next.getTimezoneOffset() * 60 * 1000;
-  return new Date(next.getTime() - offsetMs).toISOString().slice(0, 10);
+  const [year, month, day] = localDate().split("-").map(Number);
+  const next = new Date(Date.UTC(year, month - 1, day + days, 12));
+  return next.toISOString().slice(0, 10);
+}
+
+function businessDate(date: Date) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(date);
 }

@@ -298,3 +298,7 @@ a.zhizhi-app-button-link {
 .zhizhi-app-tabs {
   width: 100%;
 }
+
+.child-task-filter-tabs [class*="animal-tabContent"] {
+  display: none;
+}

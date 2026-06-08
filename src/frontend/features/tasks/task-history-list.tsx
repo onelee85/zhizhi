@@ -221,7 +221,7 @@ function getChildOptions(tasks: StudyTask[]): ChildOption[] {
 }
 
 function getChildLabel(childUserId: string) {
-  return childUserId === "child-1" ? "孩子 Demo" : childUserId;
+  return childUserId === "child-1" ? "孩子" : childUserId;
 }
 
 function getHistoryTaskHref(role: UserRole, task: StudyTask) {

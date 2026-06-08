@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { AppError } from "../../shared/errors.js";
-import type { StudyTask, User } from "../../domain/types.js";
+import type { LatestReview, StudyTask, User } from "../../domain/types.js";
 import type { TaskRepository } from "./task.repository.js";
 import { TaskService } from "./task.service.js";
 
@@ -133,9 +133,55 @@ describe("TaskService history archive", () => {
   });
 });
 
+describe("TaskService dashboard and review details", () => {
+  it("counts all submitted states and sorts action items first", async () => {
+    const makeTask = (id: string, status: StudyTask["status"], dueDate: string): MockTaskRecord => ({
+      task: { ...baseTask, id, status, dueDate, title: id }
+    });
+    const service = new TaskService(
+      mockRepository({
+        tasks: [
+          makeTask("future", "pending", "2100-01-01"),
+          makeTask("today", "pending", "2000-01-01"),
+          makeTask("resubmit", "needs_resubmit", "2100-01-02"),
+          makeTask("checking", "ai_checking", "2100-01-03"),
+          makeTask("submitted", "submitted", "2100-01-04"),
+          makeTask("review", "parent_review", "2100-01-05")
+        ]
+      }) as unknown as TaskRepository
+    );
+
+    const dashboard = await service.getParentDashboard(parent);
+
+    assert.equal(dashboard.summary.waitingReview, 3);
+    assert.deepEqual(
+      dashboard.tasks.map((task) => task.id),
+      ["checking", "submitted", "review", "resubmit", "today", "future"]
+    );
+  });
+
+  it("returns the latest parent review with task details", async () => {
+    const latestReview: LatestReview = {
+      reviewResult: "need_resubmit",
+      comment: "请补拍完整页面",
+      reviewedAt: "2026-06-08T10:00:00.000Z"
+    };
+    const service = new TaskService(
+      mockRepository({
+        tasks: [{ task: { ...baseTask, status: "needs_resubmit" }, latestReview }]
+      }) as unknown as TaskRepository
+    );
+
+    const task = await service.getTask(child, baseTask.id);
+
+    assert.deepEqual(task.latestReview, latestReview);
+  });
+});
+
 type MockTaskRecord = {
   task: StudyTask;
   confirmedAt?: string;
+  latestReview?: LatestReview;
 };
 
 function mockRepository({
@@ -175,6 +221,8 @@ function mockRepository({
         .map((record) => record.task),
     isFamilyChild: async (familyId: string, childUserId: string) => familyId === "family-1" && familyChildIds.has(childUserId),
     getTaskConfirmedAt: async (taskId: string) => byId.get(taskId)?.confirmedAt,
+    getLatestReview: async (taskId: string) => byId.get(taskId)?.latestReview,
+    findTaskById: async (taskId: string) => byId.get(taskId)?.task,
     getLatestSubmission: async () => undefined,
     listImages: async () => []
   };

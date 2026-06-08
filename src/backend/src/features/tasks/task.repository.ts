@@ -52,6 +52,12 @@ type TaskArchiveRow = RowDataPacket & {
   confirmed_at: string | null;
 };
 
+type ReviewRow = RowDataPacket & {
+  review_result: ParentReview["reviewResult"];
+  comment: string | null;
+  reviewed_at: string;
+};
+
 export class TaskRepository {
   constructor(private readonly db: DbPool) {}
 
@@ -171,6 +177,26 @@ export class TaskRepository {
     );
 
     return rows[0]?.confirmed_at ? toIsoDateTime(rows[0].confirmed_at) : undefined;
+  }
+
+  async getLatestReview(taskId: string) {
+    const [rows] = await this.db.execute<ReviewRow[]>(
+      `select review_result, comment, reviewed_at
+       from parent_review
+       where task_id = :taskId
+       order by reviewed_at desc
+       limit 1`,
+      { taskId }
+    );
+    const row = rows[0];
+
+    return row
+      ? {
+          reviewResult: row.review_result,
+          comment: row.comment ?? undefined,
+          reviewedAt: toIsoDateTime(row.reviewed_at)
+        }
+      : undefined;
   }
 
   async listChildTasksByDateRange(familyId: string, childUserId: string, startDate: string, endDate: string) {

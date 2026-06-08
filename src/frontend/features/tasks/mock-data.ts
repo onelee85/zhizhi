@@ -40,7 +40,7 @@ export const todayTasks: StudyTask[] = [
 export const statusLabel: Record<TaskStatus, string> = {
   pending: "待完成",
   submitted: "已提交",
-  ai_checking: "AI 检查中",
+  ai_checking: "待家长确认",
   parent_review: "待家长确认",
   confirmed: "家长已确认",
   needs_resubmit: "需补充"

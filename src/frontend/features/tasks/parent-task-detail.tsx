@@ -208,13 +208,20 @@ export function ParentTaskDetail({ taskId, returnHref = "/parent" }: { taskId: s
               </div>
             </form>
           ) : (
-            <p className="mt-5 rounded-lg bg-surface-soft p-4 text-body-sm text-muted">
-              {task.status === "confirmed"
-                ? "该任务已确认通过。"
-                : task.status === "needs_resubmit"
-                  ? "已要求孩子补充提交，等待新的打卡内容。"
-                  : "孩子提交打卡后，可在这里确认通过或要求补充。"}
-            </p>
+            <div className="mt-5 grid gap-3">
+              <p className="rounded-lg bg-surface-soft p-4 text-body-sm text-muted">
+                {task.status === "confirmed"
+                  ? "该任务已确认通过。"
+                  : task.status === "needs_resubmit"
+                    ? "已要求孩子补充提交，等待新的打卡内容。"
+                    : "孩子提交打卡后，可在这里确认通过或要求补充。"}
+              </p>
+              {task.latestReview?.comment ? (
+                <p className="rounded-lg border border-[#eadfc3] bg-[#fffdf8] p-4 text-body-sm text-[#725d42]">
+                  最近审核备注：{task.latestReview.comment}
+                </p>
+              ) : null}
+            </div>
           )}
         </Card>
       </section>

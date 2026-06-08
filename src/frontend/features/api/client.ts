@@ -383,14 +383,20 @@ export async function rejectWish(wishId: string, input: { rejectReason?: string 
 }
 
 export async function requestWishRedeem(wishId: string) {
-  return request<{ wish: Wish }>(`/wishes/${encodeURIComponent(wishId)}/redeem-requests`, {
+  return request<{ wish: Wish; ledger: PointLedger }>(`/wishes/${encodeURIComponent(wishId)}/redeem-requests`, {
     method: "POST"
   });
 }
 
 export async function confirmWishRedeem(wishId: string) {
-  return request<{ wish: Wish; ledger: PointLedger }>(
-    `/wishes/${encodeURIComponent(wishId)}/redeem-confirmations`,
+  return request<{ wish: Wish }>(`/wishes/${encodeURIComponent(wishId)}/redeem-confirmations`, {
+    method: "POST"
+  });
+}
+
+export async function rejectWishRedeem(wishId: string) {
+  return request<{ wish: Wish; ledger: PointLedger | null }>(
+    `/wishes/${encodeURIComponent(wishId)}/redeem-rejections`,
     {
       method: "POST"
     }

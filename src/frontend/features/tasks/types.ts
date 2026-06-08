@@ -67,6 +67,11 @@ export type StudyTask = {
   imageCount: number;
   aiSummary?: string;
   reviewNote?: string;
+  latestReview?: {
+    reviewResult: "pass" | "need_resubmit";
+    comment?: string;
+    reviewedAt: string;
+  } | null;
 };
 
 export type ParentDashboardChild = {
@@ -90,7 +95,7 @@ export type ParentDashboard = {
   tasks: StudyTask[];
 };
 
-export type PointLedgerReason = "task_reward" | "wish_redeem";
+export type PointLedgerReason = "task_reward" | "wish_redeem" | "wish_refund";
 
 export type PointLedger = {
   id: string;
@@ -128,6 +133,7 @@ export type Wish = {
   status: WishStatus;
   parentUserId?: string;
   rejectReason?: string;
+  currentRedeemRequestId?: string;
   createdAt: string;
   updatedAt: string;
   redeemedAt?: string;

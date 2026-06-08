@@ -158,12 +158,11 @@ export class IncentiveService {
       throw new AppError(409, "WISH_NOT_REDEEMABLE", "Wish cannot be redeemed in current status");
     }
 
-    const { account } = await this.getPointAccount(child);
-    if (account.balance < wish.requiredPoints) {
-      throw new AppError(409, "INSUFFICIENT_POINTS", "Current points are not enough for this wish");
+    const result = await this.repository.requestRedeem(wish, child.id);
+    if (!result.wish) {
+      throw new AppError(404, "NOT_FOUND", "Wish not found");
     }
-
-    return assertFound(await this.repository.requestRedeem(wishId), "Wish not found");
+    return { wish: result.wish, ledger: result.ledger };
   }
 
   async confirmRedeem(parent: User, wishId: string) {
@@ -174,18 +173,18 @@ export class IncentiveService {
       throw new AppError(409, "WISH_NOT_CONFIRMABLE", "Wish redemption cannot be confirmed in current status");
     }
 
-    const { account } = await this.getPointAccount(parent, wish.childUserId);
-    if (account.balance < wish.requiredPoints) {
-      throw new AppError(409, "INSUFFICIENT_POINTS", "Current points are not enough for this wish");
+    return this.repository.confirmRedeem(wish, parent.id);
+  }
+
+  async rejectRedeem(parent: User, wishId: string) {
+    this.assertParent(parent);
+    const wish = await this.getFamilyWish(parent, wishId);
+
+    if (wish.status !== "redeem_requested" || wish.requiredPoints === undefined) {
+      throw new AppError(409, "WISH_REDEEM_NOT_REJECTABLE", "Wish redemption cannot be rejected in current status");
     }
 
-    const result = await this.repository.confirmRedeem(wish, parent.id);
-
-    if (!result.wish) {
-      throw new AppError(404, "NOT_FOUND", "Wish not found");
-    }
-
-    return result;
+    return this.repository.rejectRedeem(wish, parent.id);
   }
 
   private async resolveChildUserId(user: User, childUserId?: string) {

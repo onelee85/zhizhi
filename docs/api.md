@@ -429,10 +429,19 @@ Authorization: Bearer <token>
           "createdAt": "2026-05-26T15:00:00.000Z"
         }
       ]
+    },
+    "latestReview": {
+      "reviewResult": "need_resubmit",
+      "comment": "请补拍完整页面",
+      "reviewedAt": "2026-05-26T16:00:00.000Z"
     }
   }
 }
 ```
+
+`latestReview` 为最近一次家长审核结果，包含 `reviewResult`、可选 `comment` 和 `reviewedAt`；尚未审核时返回 `null`。
+
+业务日期默认使用 `Asia/Shanghai`，后端可通过 `APP_TIMEZONE` 覆盖。
 
 ### PATCH /tasks/:taskId - 更新任务 (家长)
 
@@ -815,11 +824,21 @@ Authorization: Bearer <token>
 
 ### POST /wishes/:wishId/redeem-requests - 孩子申请兑换
 
-愿望必须处于 `approved`，且孩子当前积分不少于 `requiredPoints`。该接口只提交申请，不扣减积分。
+愿望必须处于 `approved`，且孩子当前积分不少于 `requiredPoints`。系统在事务内锁定愿望和积分账户，立即扣减积分、写入 `wish_redeem` 流水，并将愿望改为 `redeem_requested`。
+
+每次申请生成独立兑换请求 ID，响应返回本次更新后的 `wish` 和扣款 `ledger`。余额不足、重复申请或并发申请累计超过余额时返回 `409`。
 
 ### POST /wishes/:wishId/redeem-confirmations - 家长确认兑换
 
-愿望必须处于 `redeem_requested`。确认成功后系统扣减积分，写入 `point_ledger`，并将愿望标记为 `redeemed`。
+愿望必须处于 `redeem_requested`，且申请时的扣款流水必须存在。确认成功后仅将愿望标记为 `redeemed`，不再检查余额或重复扣减积分。
+
+响应返回 `{ "wish": Wish }`，不返回积分流水。
+
+### POST /wishes/:wishId/redeem-rejections - 家长拒绝兑换
+
+愿望必须处于 `redeem_requested`。系统在事务内按本次兑换请求的原扣款金额返还积分，写入 `wish_refund` 流水，将 `totalSpent` 减回，并把愿望恢复为 `approved`。所需积分保持不变，孩子之后可以再次申请兑换。
+
+该接口不接收或记录拒绝原因，响应返回恢复后的 `wish` 和退款 `ledger`。兼容升级前未预扣积分的 `redeem_requested` 记录：这类旧申请直接恢复为 `approved`，由于没有发生扣分，`ledger` 返回 `null`。
 
 ---
 

@@ -72,14 +72,14 @@ export default function HomePage() {
             展示任务总览、待确认、需补充和任务详情入口，支持创建、编辑和删除未完成任务。
           </p>
           <div className="mt-8 rounded-lg bg-canvas/90 p-4 text-ink">
-            <p className="text-caption text-muted">今日任务</p>
+            <p className="text-caption text-muted">当前任务</p>
             <p className="mt-1 text-display-sm">12</p>
           </div>
         </Card>
         <Card variant="lavender" className="min-h-56">
           <CardTitle className="text-ink">孩子端</CardTitle>
           <p className="mt-3 text-body-sm text-ink/80">
-            展示今日任务清单、任务状态、打卡提交和提交结果，流程保持轻量清楚。
+            展示当前任务清单、任务状态、照片打卡和家长反馈，流程保持轻量清楚。
           </p>
           <div className="mt-8 grid gap-2 rounded-lg bg-canvas/75 p-4">
             <div className="h-3 rounded-pill bg-ink/70" />
@@ -87,9 +87,9 @@ export default function HomePage() {
           </div>
         </Card>
         <Card variant="ochre" className="min-h-56">
-          <CardTitle className="text-ink">当前边界</CardTitle>
+          <CardTitle className="text-ink">清楚反馈</CardTitle>
           <p className="mt-3 text-body-sm text-ink/80">
-            图片上传仍使用 URL 联调，Qiniu、AI 检查、错题和周报将在后续阶段接入。
+            照片提交后由家长确认；需要补充时，孩子可以直接看到原因并再次打卡。
           </p>
           <ButtonLink href="/parent" variant="secondary" className="mt-8">
             查看进度

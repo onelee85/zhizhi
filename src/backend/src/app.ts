@@ -132,14 +132,19 @@ router.add("PATCH", "/wishes/:wishId/reject", async ({ request, response, params
 
 router.add("POST", "/wishes/:wishId/redeem-requests", async ({ request, response, params }) => {
   const child = await requireRole(request.headers.authorization, "child");
-  sendJson(response, 200, {
-    wish: await incentiveService.requestRedeem(child, params.wishId)
-  });
+  sendJson(response, 200, await incentiveService.requestRedeem(child, params.wishId));
 });
 
 router.add("POST", "/wishes/:wishId/redeem-confirmations", async ({ request, response, params }) => {
   const parent = await requireRole(request.headers.authorization, "parent");
-  sendJson(response, 200, await incentiveService.confirmRedeem(parent, params.wishId));
+  sendJson(response, 200, {
+    wish: await incentiveService.confirmRedeem(parent, params.wishId)
+  });
+});
+
+router.add("POST", "/wishes/:wishId/redeem-rejections", async ({ request, response, params }) => {
+  const parent = await requireRole(request.headers.authorization, "parent");
+  sendJson(response, 200, await incentiveService.rejectRedeem(parent, params.wishId));
 });
 
 router.add("GET", "/tasks/today", async ({ request, response, query }) => {

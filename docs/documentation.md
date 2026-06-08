@@ -56,9 +56,9 @@
 
 通用弹窗统一通过 `AppModal` 和 `AppConfirmModal` 封装。删除任务等确认类操作使用 `AppConfirmModal`，不再使用浏览器原生 `window.confirm`，以保持 animal-island 风格、加载态和移动端布局一致。
 
-孩子端优先呈现“岛屿任务”体验：今日任务页使用任务视图 tabs 和任务编号卡片，打卡页保持单列表单流程，提交结果页通过弹窗展示 AI 检查状态或摘要。孩子心愿清单页展示当前积分、积分流水、提交心愿和申请兑换入口。已由家长确认完成超过 7 天的任务会从普通任务列表隐藏，并通过【历史任务】入口查看。
+孩子端优先呈现“岛屿任务”体验：任务页将“今日 / 逾期 / 已完成”筛选、当前任务数量和任务列表整合在同一面板中，并保留任务编号卡片；打卡页保持单列表单流程，提交结果页展示任务结果和家长反馈。孩子心愿清单页展示当前积分、积分流水、提交心愿和申请兑换入口。已由家长确认完成超过 7 天的任务会从普通任务列表隐藏，并通过【历史任务】入口查看。
 
-家长端保持轻量管理台风格：摘要卡、日期筛选、受控状态选择器和任务列表保持清晰可扫，历史任务入口放在任务列表筛选区域附近。家长愿望管理页展示孩子积分、愿望状态、待设置积分、驳回和兑换确认操作。历史任务归档后，家长普通任务列表默认只展示未归档任务，历史任务入口用于查看当前家庭的已归档任务。
+家长端保持轻量管理台风格：摘要卡、日期筛选、受控状态选择器和任务列表保持清晰可扫，历史任务入口放在任务列表筛选区域附近。家长愿望管理页展示孩子积分、愿望状态、待设置积分、兑换确认和拒绝退款操作。历史任务归档后，家长普通任务列表默认只展示未归档任务，历史任务入口用于查看当前家庭的已归档任务。
 
 顶部菜单（`HeaderNav`）采用胶囊 + 图标的圆角布局：登录后展示“任务清单”（`icon-map`）、“日历”（`icon-map`）和“心愿单”（`icon-shopping`）导航项，激活态使用 `brand-mint` 高亮和内嵌阴影；右侧展示用户身份胶囊（头像首字母 + 昵称 + 角色副标题）和“退出登录”按钮。未登录态不展示导航入口，避免在登录页出现无实际作用的“任务清单”和“登录”菜单。顶部品牌区使用渐变徽标 + 绿色状态点 + “家庭学习打卡”副标题。顶部菜单将原文案“家长端 / 孩子端”统一为“任务清单”。
 
@@ -71,26 +71,32 @@
 已包含页面和规划入口：
 
 - `/`：首页和阶段说明。
-- `/login`：用户名密码登录页，调用 `POST /auth/login`；页面展示家长和孩子 Demo 账号卡片，登录表单使用分区标题、统一输入控件和错误提示样式；未登录或 token 失效访问受保护页面时会自动跳转到该页，并展示中文提示。
-- `/parent`：家长任务管理页，调用 `GET /parent/dashboard`，任务列表支持按截止日期和任务状态筛选，展示任务奖励积分，列表每项支持通过统一确认弹窗删除（`pending`/`needs_resubmit` 状态）。
+- `/login`：用户名密码登录页，调用 `POST /auth/login`；测试账号仍预填在表单中，但页面不公开展示账号说明卡；未登录或 token 失效访问受保护页面时会自动跳转到该页，并展示中文提示。
+- `/parent`：家长任务管理页，调用 `GET /parent/dashboard`，任务列表支持按截止日期和任务状态筛选；“待家长确认”对应 `parent_review`，不提供当前流程不再使用的 `ai_checking` 独立筛选项。页面展示任务奖励积分，列表每项支持通过统一确认弹窗删除（`pending`/`needs_resubmit` 状态）。
 - `/parent/history`：家长历史任务页，调用 `GET /tasks/history`，查看当前家庭家长确认完成超过 7 天的任务，支持按孩子和日期范围筛选；历史任务只读。
-- `/parent/calendar`：家长日历面板，调用 `GET /tasks/calendar?month=YYYY-MM`，支持月视图、上月/下月、今天、今日高亮、点击日期创建任务、点击任务详情、在选中日期检查器编辑或删除未完成任务。
-- `/parent/wishes`：家长愿望管理页，调用 `GET /points/account`、`GET /wishes`、`PATCH /wishes/:wishId/approve`、`PATCH /wishes/:wishId/reject`、`POST /wishes/:wishId/redeem-confirmations` 和 `DELETE /wishes/:wishId`；已兑换的心愿支持"删除心愿"，删除前使用统一确认弹窗。
+- `/parent/calendar`：家长日历面板，调用 `GET /tasks/calendar?month=YYYY-MM`，支持月视图、月历标题栏中的上月/今天/下月切换、今日高亮、点击日期创建任务、点击任务详情、在选中日期检查器编辑或删除未完成任务。
+- `/parent/wishes`：家长愿望管理页，调用 `GET /points/account`、`GET /wishes`、`PATCH /wishes/:wishId/approve`、`PATCH /wishes/:wishId/reject`、`POST /wishes/:wishId/redeem-confirmations`、`POST /wishes/:wishId/redeem-rejections` 和 `DELETE /wishes/:wishId`；待确认兑换可确认完成或拒绝并退款，已兑换的心愿支持删除。
 - `/parent/tasks/new`：创建任务表单，调用 `POST /tasks`，支持设置任务奖励积分；从日历进入时可通过 `dueDate=YYYY-MM-DD` 默认选中截止日期。
 - `/parent/tasks/[taskId]`：家长任务详情和审核页，调用 `GET /tasks/:taskId` 和 `POST /tasks/:taskId/reviews`；仅在任务已有提交且处于 `submitted`、`ai_checking` 或 `parent_review` 状态时显示确认通过/要求补充，`pending`/`needs_resubmit` 状态显示编辑和删除按钮，删除前使用统一确认弹窗。
 - `/parent/tasks/[taskId]/edit`：编辑任务表单，调用 `GET /tasks/:taskId` 预填并 `PATCH /tasks/:taskId` 保存，支持修改未完成任务的奖励积分。
 - `/child`：孩子今日任务页，调用 `GET /tasks/today`；支持通过 tabs 切换今日、逾期和已完成三种筛选视图，复用 `includeOverdueIncomplete=true` 与 `includeCompleted=true` 请求参数取回完整筛选数据，并展示任务奖励积分。
 - `/child/history`：孩子历史任务页，调用 `GET /tasks/history`，查看自己家长确认完成超过 7 天的任务，支持按日期范围筛选；历史任务只读。
 - `/child/calendar`：孩子日历面板，调用 `GET /tasks/calendar?month=YYYY-MM`，只读展示分配给自己的月任务；点击任务进入打卡页或提交结果页，并通过 `from=calendar` 保持返回目标为日历面板。未来任务可打开查看，但不能提前提交打卡。
-- `/child/wishes`：孩子心愿清单页，调用 `GET /points/account`、`GET /wishes` 和 `POST /wishes/:wishId/redeem-requests`；通过紧凑快捷入口跳转到 `/child/wishes/new` 提交心愿；被驳回的心愿提供"修改心愿"和"删除心愿"入口，删除前使用统一确认弹窗。
+- `/child/wishes`：孩子心愿清单页，调用 `GET /points/account`、`GET /wishes` 和 `POST /wishes/:wishId/redeem-requests`；申请兑换成功时立即扣分并刷新余额、流水，在对应心愿卡片展示等待家长确认的气泡提示；被驳回的心愿提供修改和删除入口。
 - `/child/wishes/new`：孩子提交新心愿页，调用 `POST /wishes`，提交成功后返回 `/child/wishes`。
 - `/child/wishes/[wishId]/edit`：孩子修改被驳回的心愿页，调用 `GET /wishes/:wishId` 预填并 `PATCH /wishes/:wishId` 保存；保存成功后状态回到 `pending_review` 并清空所需积分、家长审核记录和驳回原因。
 - `/child/tasks/[taskId]/check-in`：孩子打卡页，调用 `GET /tasks/:taskId` 和 `POST /tasks/:taskId/submissions`；顶部统一展示返回按钮，默认返回任务清单，从日历进入时返回日历。若任务截止日期晚于今天，仅展示任务详情和“时间还没到”的友好提示，不渲染提交表单。
-- `/child/tasks/[taskId]/result`：提交结果页，调用 `GET /tasks/:taskId`，展示任务信息、提交状态、孩子备注和已上传图片，并通过弹窗展示 AI 检查状态或摘要；顶部返回按钮会根据来源返回任务清单或日历。
+- `/child/tasks/[taskId]/result`：提交结果页，调用 `GET /tasks/:taskId`，展示任务信息、提交状态、孩子备注和已上传图片；需要补充时展示最近家长审核原因，并提供“补充打卡”直达入口。AI 检查当前统一显示“暂未开放”。
 
 当前不包含：
 
 - Alibaba Bailian AI 检查。
+
+移动端使用 64px 紧凑顶部栏和固定底部导航，底部仅保留“任务、日历、心愿”。月历在手机端只显示日期、状态点和任务数，完整任务信息在选中日期面板中展示；桌面端保留任务摘要。
+
+业务日期统一按 `Asia/Shanghai` 计算。后端可通过 `APP_TIMEZONE` 覆盖默认业务时区；创建任务默认日期、今日任务查询、逾期判断和日历“今天”使用同一日期口径。
+
+登录后的角色路由会自动纠正：孩子访问 `/parent/**` 时回到 `/child`，家长访问 `/child/**` 时回到 `/parent`。
 
 前端通过 `src/frontend/app/api/backend/[...path]/route.ts` 提供同源代理，默认转发到 `http://localhost:4000`，可通过服务端环境变量 `BACKEND_BASE_URL` 覆盖；旧的 `NEXT_PUBLIC_API_BASE_URL` 仍保留兼容。图片展示路径 `/uploads/photos/<filename>` 由 `src/frontend/app/uploads/photos/[filename]/route.ts` 代理到后端本地文件读取接口。
 
@@ -150,8 +156,9 @@ http://localhost:4000
 | `DELETE` | `/wishes/:wishId` | 孩子删除被驳回的心愿；家长删除已兑换的心愿；物理删除心愿记录 |
 | `PATCH` | `/wishes/:wishId/approve` | 家长设置愿望所需积分并通过 |
 | `PATCH` | `/wishes/:wishId/reject` | 家长驳回愿望 |
-| `POST` | `/wishes/:wishId/redeem-requests` | 孩子申请兑换愿望 |
-| `POST` | `/wishes/:wishId/redeem-confirmations` | 家长确认兑换并扣减积分 |
+| `POST` | `/wishes/:wishId/redeem-requests` | 孩子申请兑换并立即扣减积分 |
+| `POST` | `/wishes/:wishId/redeem-confirmations` | 家长确认已预扣积分的兑换 |
+| `POST` | `/wishes/:wishId/redeem-rejections` | 家长拒绝兑换并返还积分 |
 
 当前后端已包含：
 
@@ -269,7 +276,7 @@ mysql -h 127.0.0.1 -u root -p < db/schema.sql
 
 - 积分由家长在任务上设置，家长确认任务完成后才发放。
 - 孩子提交愿望后，家长只能设置所需积分并通过，或驳回，不能修改孩子愿望原文。
-- 孩子只是发起兑换申请，家长确认后才扣积分并标记已兑换。
+- 孩子申请兑换时立即扣积分；家长确认后标记已兑换，拒绝时返还积分并恢复为可兑换。
 - 第一版周报不展示积分和愿望数据。
 
 ## MVP 阶段计划

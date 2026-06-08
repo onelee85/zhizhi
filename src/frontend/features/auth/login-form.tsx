@@ -38,34 +38,15 @@ export function LoginForm() {
   }
 
   return (
-    <div className="mx-auto grid max-w-5xl gap-6 py-6 md:grid-cols-[0.92fr_1.08fr] md:items-center md:py-section">
-      <section className="grid gap-5 rounded-[32px] bg-[#fffdf2] p-5 shadow-[0_10px_0_rgba(114,93,66,0.08)] md:p-7">
+    <div className="mx-auto grid max-w-lg gap-6 py-6 md:py-section">
+      <section className="grid gap-4 rounded-[32px] bg-[#fffdf2] p-5 shadow-[0_10px_0_rgba(114,93,66,0.08)] md:p-7">
         <div>
           <p className="w-fit rounded-pill bg-[#82d5bb] px-4 py-2 text-caption-uppercase text-white shadow-[inset_0_-3px_0_rgba(68,129,111,0.28)]">
             Account
           </p>
           <h1 className="mt-4 text-display-md tracking-normal text-ink md:text-display-lg">用户名密码登录</h1>
         </div>
-        <div className="grid gap-3">
-          <div className="rounded-[24px] border-2 border-[#eadfc3] bg-[#fffdf8] p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-title-sm text-ink">家长 Demo</p>
-              <span className="rounded-pill bg-[#f7cd67] px-3 py-1 text-caption font-bold text-[#725d42]">
-                parent
-              </span>
-            </div>
-            <p className="mt-3 text-body-sm text-muted">parent_demo / password123</p>
-          </div>
-          <div className="rounded-[24px] border-2 border-[#d8eee6] bg-[#f2fbf7] p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-title-sm text-ink">孩子 Demo</p>
-              <span className="rounded-pill bg-[#82d5bb] px-3 py-1 text-caption font-bold text-white">
-                child
-              </span>
-            </div>
-            <p className="mt-3 text-body-sm text-muted">child_demo / password123</p>
-          </div>
-        </div>
+        <p className="text-body-sm text-muted">登录后会自动进入与你身份对应的任务清单。</p>
       </section>
 
       <Card className="overflow-hidden bg-canvas/95 p-0 md:p-0">
@@ -86,7 +67,7 @@ export function LoginForm() {
             <input
               value={username}
               onChange={(event) => setUsername(event.target.value)}
-              placeholder="parent_demo 或 child_demo"
+              placeholder="请输入用户名"
               autoComplete="username"
             />
           </label>

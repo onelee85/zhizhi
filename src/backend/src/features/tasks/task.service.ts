@@ -1,5 +1,6 @@
 import { AppError, assertFound } from "../../shared/errors.js";
 import { deleteLocalFile } from "../../server/uploads.js";
+import { getBusinessDate, getMonthRange } from "../../shared/business-date.js";
 import type { StudyTask, User } from "../../domain/types.js";
 import type { TaskRepository } from "./task.repository.js";
 import type { IncentiveService } from "../incentives/incentive.service.js";
@@ -30,7 +31,7 @@ export class TaskService {
     user: User,
     options: { includeOverdueIncomplete?: boolean; includeCompleted?: boolean } = {}
   ) {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getBusinessDate();
     const tasks =
       user.role === "child"
         ? await this.repository.listTodayTasks(user.familyId, user.id, today, options)
@@ -164,7 +165,7 @@ export class TaskService {
       childNote: input.childNote
     });
     const images = await this.repository.createImages(submission.id, imageUrls);
-    const nextStatus = task.needAiCheck ? "ai_checking" : "parent_review";
+    const nextStatus = "parent_review";
     const updatedTask = await this.repository.setTaskStatus(taskId, nextStatus);
 
     return {
@@ -209,7 +210,7 @@ export class TaskService {
         : null;
 
     return {
-      task: await this.repository.findTaskById(taskId),
+      task: await this.withSubmission(assertFound(await this.repository.findTaskById(taskId), "Task not found")),
       submission,
       review,
       pointLedger
@@ -231,23 +232,25 @@ export class TaskService {
       confirmed: tasks.filter((task) => task.status === "confirmed").length,
       pending: tasks.filter((task) => task.status === "pending").length,
       needsResubmit: tasks.filter((task) => task.status === "needs_resubmit").length,
-      waitingReview: tasks.filter((task) => task.status === "parent_review").length
+      waitingReview: tasks.filter((task) => ["submitted", "ai_checking", "parent_review"].includes(task.status)).length
     };
 
     return {
       summary,
-      tasks
+      tasks: tasks.sort((left, right) => compareDashboardTasks(left, right, getBusinessDate()))
     };
   }
 
   private async withSubmission(task: StudyTask) {
     const submission = await this.repository.getLatestSubmission(task.id);
     const images = submission ? await this.repository.listImages(submission.id) : [];
+    const latestReview = await this.repository.getLatestReview(task.id);
     const archive = await this.getArchiveMetadata(task);
 
     return {
       ...task,
       ...archive,
+      latestReview: latestReview ?? null,
       submission: submission
         ? {
             ...submission,
@@ -290,16 +293,23 @@ export class TaskService {
   }
 }
 
-function getMonthRange(month: string) {
-  const [year, monthIndex] = month.split("-").map((part) => Number.parseInt(part, 10));
-  const startDate = `${month}-01`;
-  const endDate = new Date(Date.UTC(year, monthIndex, 0)).toISOString().slice(0, 10);
-
-  return { startDate, endDate };
-}
-
 function isIncompleteTask(task: StudyTask) {
   return task.status === "pending" || task.status === "needs_resubmit";
+}
+
+function compareDashboardTasks(left: StudyTask, right: StudyTask, today: string) {
+  const rank = (task: StudyTask) => {
+    if (["submitted", "ai_checking", "parent_review"].includes(task.status)) return 0;
+    if (task.status === "needs_resubmit") return 1;
+    if (task.status === "pending" && task.dueDate <= today) return 2;
+    if (task.status === "pending" && task.dueDate > today) return 3;
+    return 4;
+  };
+  const rankDifference = rank(left) - rank(right);
+
+  if (rankDifference !== 0) return rankDifference;
+  if (left.dueDate !== right.dueDate) return left.dueDate.localeCompare(right.dueDate);
+  return (left.dueTime ?? "99:99").localeCompare(right.dueTime ?? "99:99");
 }
 
 function addDays(iso: string, days: number) {

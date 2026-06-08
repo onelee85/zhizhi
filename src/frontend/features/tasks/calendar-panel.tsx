@@ -9,6 +9,7 @@ import { AppConfirmModal } from "@/components/ui/modal";
 import { ApiError, deleteTask, getCalendarTasks } from "@/features/api/client";
 import { statusLabel, statusTone } from "@/features/tasks/status";
 import type { StudyTask, UserRole } from "@/features/tasks/types";
+import { getBusinessDate } from "@/lib/business-date";
 
 type CalendarDay = {
   date: string;
@@ -19,7 +20,7 @@ type CalendarDay = {
 const weekdayLabels = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
 
 export function TaskCalendarPanel({ role }: { role: UserRole }) {
-  const today = useMemo(() => getLocalDate(), []);
+  const today = useMemo(() => getBusinessDate(), []);
   const [visibleMonth, setVisibleMonth] = useState(today.slice(0, 7));
   const [selectedDate, setSelectedDate] = useState(today);
   const [tasks, setTasks] = useState<StudyTask[]>([]);
@@ -102,7 +103,12 @@ export function TaskCalendarPanel({ role }: { role: UserRole }) {
 
   return (
     <div className="mx-auto grid max-w-7xl gap-6">
-      <section className="grid gap-5 rounded-[32px] bg-[#fffdf2] p-5 shadow-[0_10px_0_rgba(114,93,66,0.08)] md:grid-cols-[1fr_auto] md:items-end md:p-6">
+      <section
+        className={[
+          "grid gap-5 rounded-[32px] bg-[#fffdf2] p-5 shadow-[0_10px_0_rgba(114,93,66,0.08)] md:items-end md:p-6",
+          canManage ? "md:grid-cols-[1fr_auto]" : ""
+        ].join(" ")}
+      >
         <div>
           <p className="text-caption-uppercase text-muted">Calendar</p>
           <h1 className="mt-3 text-display-sm tracking-normal text-ink">
@@ -112,22 +118,11 @@ export function TaskCalendarPanel({ role }: { role: UserRole }) {
             月视图按日期汇总学习任务，点击日期查看当天任务，点击任务进入处理页面。
           </p>
         </div>
-        <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:justify-end">
-          <AppButton type="button" variant="secondary" className="px-3" onClick={() => goToMonth(-1)}>
-            上月
-          </AppButton>
-          <AppButton type="button" variant="secondary" className="px-3" onClick={goToday}>
-            今天
-          </AppButton>
-          <AppButton type="button" variant="secondary" className="px-3" onClick={() => goToMonth(1)}>
-            下月
-          </AppButton>
-          {canManage ? (
-            <AppButtonLink href={`/parent/tasks/new?dueDate=${selectedDate}&from=calendar`} className="col-span-3 sm:col-span-1">
-              创建任务
-            </AppButtonLink>
-          ) : null}
-        </div>
+        {canManage ? (
+          <AppButtonLink href={`/parent/tasks/new?dueDate=${selectedDate}&from=calendar`}>
+            创建任务
+          </AppButtonLink>
+        ) : null}
       </section>
 
       {error ? <AppCard className="text-body-sm text-brand-coral">{error}</AppCard> : null}
@@ -155,16 +150,16 @@ export function TaskCalendarPanel({ role }: { role: UserRole }) {
             <div>
               <AppCardTitle>{formatMonthTitle(visibleMonth)}</AppCardTitle>
             </div>
-            <div className="inline-flex rounded-full border-2 border-[#eadfc3] bg-[#fffdf8] p-1 text-caption text-muted">
-              <button type="button" className="rounded-full px-3 py-2 hover:bg-[#f7f0d8]" onClick={() => goToMonth(-1)}>
-                ‹
-              </button>
-              <button type="button" className="rounded-full px-3 py-2 hover:bg-[#f7f0d8]" onClick={goToday}>
-                今
-              </button>
-              <button type="button" className="rounded-full px-3 py-2 hover:bg-[#f7f0d8]" onClick={() => goToMonth(1)}>
-                ›
-              </button>
+            <div data-testid="calendar-month-navigation" className="grid grid-cols-3 gap-2">
+              <AppButton type="button" variant="secondary" className="px-3" onClick={() => goToMonth(-1)}>
+                上月
+              </AppButton>
+              <AppButton type="button" variant="secondary" className="px-3" onClick={goToday}>
+                今天
+              </AppButton>
+              <AppButton type="button" variant="secondary" className="px-3" onClick={() => goToMonth(1)}>
+                下月
+              </AppButton>
             </div>
           </div>
 
@@ -186,7 +181,7 @@ export function TaskCalendarPanel({ role }: { role: UserRole }) {
                 <div
                   key={day.date}
                   className={[
-                    "relative min-h-[92px] bg-[#fffdf8] p-1.5 transition md:min-h-[132px] md:p-2.5",
+                    "relative min-h-[68px] min-w-0 bg-[#fffdf8] p-1 transition md:min-h-[132px] md:p-2.5",
                     day.inMonth ? "" : "bg-[#f7f0d8] text-muted-soft",
                     isSelected ? "z-10 ring-2 ring-inset ring-[#82d5bb]" : ""
                   ].join(" ")}
@@ -198,7 +193,7 @@ export function TaskCalendarPanel({ role }: { role: UserRole }) {
                     aria-pressed={isSelected}
                     onClick={() => setSelectedDate(day.date)}
                   />
-                  <div className="relative z-10 flex items-center justify-between gap-1">
+                  <div className="relative z-10 flex items-center justify-center gap-1 md:justify-between">
                     <button
                       type="button"
                       className={[
@@ -213,14 +208,26 @@ export function TaskCalendarPanel({ role }: { role: UserRole }) {
                     {canManage && day.inMonth ? (
                       <Link
                         href={`/parent/tasks/new?dueDate=${day.date}&from=calendar`}
-                        className="grid h-7 w-7 place-items-center rounded-full bg-[#fffdf2] text-title-sm font-bold text-[#725d42] shadow-[inset_0_-2px_0_rgba(114,93,66,0.12)] transition hover:bg-[#f7cd67]"
+                        className="hidden h-7 w-7 place-items-center rounded-full bg-[#fffdf2] text-title-sm font-bold text-[#725d42] shadow-[inset_0_-2px_0_rgba(114,93,66,0.12)] transition hover:bg-[#f7cd67] md:grid"
                         aria-label={`在 ${day.date} 创建任务`}
                       >
                         +
                       </Link>
                     ) : null}
                   </div>
-                  <div className="relative z-10 mt-2 grid gap-1">
+                  <div className="relative z-10 mt-1 flex items-center justify-center gap-1 md:hidden">
+                    {dayTasks.slice(0, 3).map((task) => (
+                      <span
+                        key={task.id}
+                        className={`h-1.5 w-1.5 rounded-full ${getTaskDotClass(task.status)}`}
+                        aria-hidden
+                      />
+                    ))}
+                    {dayTasks.length > 0 ? (
+                      <span className="text-[10px] font-bold leading-none text-muted">{dayTasks.length}</span>
+                    ) : null}
+                  </div>
+                  <div className="relative z-10 mt-2 hidden gap-1 md:grid">
                     {dayTasks.slice(0, 3).map((task) => (
                       <Link
                         key={task.id}
@@ -390,10 +397,6 @@ function addMonths(month: string, delta: number) {
   return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function getLocalDate() {
-  return toDateKey(new Date());
-}
-
 function toDateKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
@@ -413,13 +416,13 @@ function getTaskHref(role: UserRole, task: StudyTask) {
     return `/parent/tasks/${task.id}?from=calendar`;
   }
 
-  return isChildCompleted(task)
+  return isChildResultTask(task)
     ? `/child/tasks/${task.id}/result?from=calendar`
     : `/child/tasks/${task.id}/check-in?from=calendar`;
 }
 
-function isChildCompleted(task: StudyTask) {
-  return ["submitted", "ai_checking", "parent_review", "confirmed"].includes(task.status);
+function isChildResultTask(task: StudyTask) {
+  return ["submitted", "ai_checking", "parent_review", "confirmed", "needs_resubmit"].includes(task.status);
 }
 
 function isIncompleteTask(task: StudyTask) {
@@ -440,4 +443,11 @@ function getTaskChipClass(status: StudyTask["status"]) {
   }
 
   return "bg-[#f7f0d8] text-[#725d42]";
+}
+
+function getTaskDotClass(status: StudyTask["status"]) {
+  if (status === "confirmed") return "bg-[#44816f]";
+  if (status === "needs_resubmit") return "bg-brand-coral";
+  if (["submitted", "ai_checking", "parent_review"].includes(status)) return "bg-[#e8b94a]";
+  return "bg-[#9a9a9a]";
 }

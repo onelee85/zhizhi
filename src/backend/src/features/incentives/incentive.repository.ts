@@ -40,6 +40,7 @@ type WishRow = RowDataPacket & {
   status: Wish["status"];
   parent_user_id: string | null;
   reject_reason: string | null;
+  current_redeem_request_id: string | null;
   created_at: string;
   updated_at: string;
   redeemed_at: string | null;
@@ -259,42 +260,29 @@ export class IncentiveRepository {
     return { wishId, deleted: true };
   }
 
-  async requestRedeem(wishId: string) {
-    const now = currentTimestamp();
-    await this.db.execute<ResultSetHeader>(
-      `update wish
-       set status = 'redeem_requested',
-           updated_at = :updatedAt
-       where id = :wishId and status = 'approved'`,
-      { wishId, updatedAt: now.mysql }
-    );
-
-    return this.findWishById(wishId);
-  }
-
-  async confirmRedeem(wish: Wish, parentUserId: string) {
+  async requestRedeem(wish: Wish, childUserId: string) {
     return this.withTransaction(async (connection) => {
       const lockedWish = await this.findWishForUpdate(connection, wish.id);
 
-      if (!lockedWish || lockedWish.status !== "redeem_requested" || lockedWish.requiredPoints === undefined) {
-        return { wish: lockedWish, ledger: null };
+      if (!lockedWish) {
+        throw new AppError(404, "NOT_FOUND", "Wish not found");
+      }
+      if (lockedWish.childUserId !== childUserId) {
+        throw new AppError(403, "FORBIDDEN", "Wish is outside current child");
+      }
+      if (lockedWish.status !== "approved" || lockedWish.requiredPoints === undefined) {
+        throw new AppError(409, "WISH_NOT_REDEEMABLE", "Wish cannot be redeemed in current status");
       }
 
       await this.ensureAccount(connection, lockedWish.familyId, lockedWish.childUserId);
-      const existingLedger = await this.findLedgerBySource(connection, lockedWish.familyId, "wish", lockedWish.id);
-      const now = currentTimestamp();
-
-      if (existingLedger) {
-        await this.markWishRedeemed(connection, lockedWish.id, parentUserId, now.mysql);
-        return { wish: await this.findWishForUpdate(connection, lockedWish.id), ledger: existingLedger };
-      }
-
       const account = await this.findAccountForUpdate(connection, lockedWish.familyId, lockedWish.childUserId);
       if (account.balance < lockedWish.requiredPoints) {
         throw new AppError(409, "INSUFFICIENT_POINTS", "Current points are not enough for this wish");
       }
 
+      const requestId = randomUUID();
       const nextBalance = account.balance - lockedWish.requiredPoints;
+      const now = currentTimestamp();
       const ledger: PointLedger = {
         id: randomUUID(),
         familyId: lockedWish.familyId,
@@ -303,8 +291,8 @@ export class IncentiveRepository {
         balanceAfter: nextBalance,
         reason: "wish_redeem",
         sourceType: "wish",
-        sourceId: lockedWish.id,
-        operatorUserId: parentUserId,
+        sourceId: requestId,
+        operatorUserId: childUserId,
         createdAt: now.iso
       };
 
@@ -322,9 +310,141 @@ export class IncentiveRepository {
         }
       );
       await this.insertLedger(connection, ledger, now.mysql);
+      await connection.execute<ResultSetHeader>(
+        `update wish
+         set status = 'redeem_requested',
+             current_redeem_request_id = :requestId,
+             updated_at = :updatedAt
+         where id = :wishId and status = 'approved'`,
+        { wishId: lockedWish.id, requestId, updatedAt: now.mysql }
+      );
+
+      return {
+        wish: await this.findWishForUpdate(connection, lockedWish.id),
+        ledger
+      };
+    });
+  }
+
+  async confirmRedeem(wish: Wish, parentUserId: string) {
+    return this.withTransaction(async (connection) => {
+      const lockedWish = await this.findWishForUpdate(connection, wish.id);
+
+      if (
+        !lockedWish ||
+        lockedWish.status !== "redeem_requested" ||
+        lockedWish.requiredPoints === undefined ||
+        !lockedWish.currentRedeemRequestId
+      ) {
+        throw new AppError(409, "WISH_NOT_CONFIRMABLE", "Wish redemption cannot be confirmed in current status");
+      }
+
+      const redeemLedger = await this.findLedgerBySourceAndReason(
+        connection,
+        lockedWish.familyId,
+        "wish",
+        lockedWish.currentRedeemRequestId,
+        "wish_redeem"
+      );
+      if (!redeemLedger) {
+        throw new AppError(409, "WISH_REDEEM_LEDGER_MISSING", "Wish redemption debit was not found");
+      }
+
+      const now = currentTimestamp();
       await this.markWishRedeemed(connection, lockedWish.id, parentUserId, now.mysql);
 
-      return { wish: await this.findWishForUpdate(connection, lockedWish.id), ledger };
+      return assertWish(await this.findWishForUpdate(connection, lockedWish.id));
+    });
+  }
+
+  async rejectRedeem(wish: Wish, parentUserId: string) {
+    return this.withTransaction(async (connection) => {
+      const lockedWish = await this.findWishForUpdate(connection, wish.id);
+
+      if (
+        !lockedWish ||
+        lockedWish.status !== "redeem_requested" ||
+        lockedWish.requiredPoints === undefined
+      ) {
+        throw new AppError(409, "WISH_REDEEM_NOT_REJECTABLE", "Wish redemption cannot be rejected in current status");
+      }
+
+      const now = currentTimestamp();
+      if (!lockedWish.currentRedeemRequestId) {
+        await this.markWishRedeemRejected(connection, lockedWish.id, parentUserId, now.mysql);
+        return {
+          wish: assertWish(await this.findWishForUpdate(connection, lockedWish.id)),
+          ledger: null
+        };
+      }
+
+      await this.ensureAccount(connection, lockedWish.familyId, lockedWish.childUserId);
+      const existingRefund = await this.findLedgerBySourceAndReason(
+        connection,
+        lockedWish.familyId,
+        "wish",
+        lockedWish.currentRedeemRequestId,
+        "wish_refund"
+      );
+
+      if (existingRefund) {
+        await this.markWishRedeemRejected(connection, lockedWish.id, parentUserId, now.mysql);
+        return {
+          wish: assertWish(await this.findWishForUpdate(connection, lockedWish.id)),
+          ledger: existingRefund
+        };
+      }
+
+      const redeemLedger = await this.findLedgerBySourceAndReason(
+        connection,
+        lockedWish.familyId,
+        "wish",
+        lockedWish.currentRedeemRequestId,
+        "wish_redeem"
+      );
+      if (!redeemLedger) {
+        throw new AppError(409, "WISH_REDEEM_LEDGER_MISSING", "Wish redemption debit was not found");
+      }
+
+      const account = await this.findAccountForUpdate(connection, lockedWish.familyId, lockedWish.childUserId);
+      const refundAmount = Math.abs(redeemLedger.changeAmount);
+      if (account.totalSpent < refundAmount) {
+        throw new AppError(409, "POINT_ACCOUNT_INCONSISTENT", "Point account spent total is inconsistent");
+      }
+      const nextBalance = account.balance + refundAmount;
+      const ledger: PointLedger = {
+        id: randomUUID(),
+        familyId: lockedWish.familyId,
+        childUserId: lockedWish.childUserId,
+        changeAmount: refundAmount,
+        balanceAfter: nextBalance,
+        reason: "wish_refund",
+        sourceType: "wish",
+        sourceId: lockedWish.currentRedeemRequestId,
+        operatorUserId: parentUserId,
+        createdAt: now.iso
+      };
+
+      await connection.execute<ResultSetHeader>(
+        `update child_point_account
+         set balance = :balance,
+             total_spent = total_spent - :refundAmount,
+             updated_at = :updatedAt
+         where id = :accountId`,
+        {
+          accountId: account.id,
+          balance: nextBalance,
+          refundAmount,
+          updatedAt: now.mysql
+        }
+      );
+      await this.insertLedger(connection, ledger, now.mysql);
+      await this.markWishRedeemRejected(connection, lockedWish.id, parentUserId, now.mysql);
+
+      return {
+        wish: assertWish(await this.findWishForUpdate(connection, lockedWish.id)),
+        ledger
+      };
     });
   }
 
@@ -409,6 +529,27 @@ export class IncentiveRepository {
     return rows[0] ? mapLedger(rows[0]) : undefined;
   }
 
+  private async findLedgerBySourceAndReason(
+    db: DbExecutor,
+    familyId: string,
+    sourceType: PointLedger["sourceType"],
+    sourceId: string,
+    reason: PointLedger["reason"]
+  ) {
+    const [rows] = await db.execute<LedgerRow[]>(
+      `select *
+       from point_ledger
+       where family_id = :familyId
+         and source_type = :sourceType
+         and source_id = :sourceId
+         and reason = :reason
+       limit 1`,
+      { familyId, sourceType, sourceId, reason }
+    );
+
+    return rows[0] ? mapLedger(rows[0]) : undefined;
+  }
+
   private async insertLedger(db: DbExecutor, ledger: PointLedger, createdAt: string) {
     await db.execute<ResultSetHeader>(
       `insert into point_ledger (
@@ -457,6 +598,18 @@ export class IncentiveRepository {
       { wishId, parentUserId, redeemedAt }
     );
   }
+
+  private async markWishRedeemRejected(db: PoolConnection, wishId: string, parentUserId: string, updatedAt: string) {
+    await db.execute<ResultSetHeader>(
+      `update wish
+       set status = 'approved',
+           parent_user_id = :parentUserId,
+           current_redeem_request_id = null,
+           updated_at = :updatedAt
+       where id = :wishId and status = 'redeem_requested'`,
+      { wishId, parentUserId, updatedAt }
+    );
+  }
 }
 
 function mapAccount(row: AccountRow): ChildPointAccount {
@@ -498,10 +651,18 @@ function mapWish(row: WishRow): Wish {
     status: row.status,
     parentUserId: row.parent_user_id ?? undefined,
     rejectReason: row.reject_reason ?? undefined,
+    currentRedeemRequestId: row.current_redeem_request_id ?? undefined,
     createdAt: toIsoDateTime(row.created_at),
     updatedAt: toIsoDateTime(row.updated_at),
     redeemedAt: row.redeemed_at ? toIsoDateTime(row.redeemed_at) : undefined
   };
+}
+
+function assertWish(wish: Wish | undefined) {
+  if (!wish) {
+    throw new AppError(404, "NOT_FOUND", "Wish not found");
+  }
+  return wish;
 }
 
 function currentTimestamp() {

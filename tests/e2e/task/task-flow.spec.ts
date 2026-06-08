@@ -55,7 +55,7 @@ class AuthPage {
     ]);
 
     await expect(this.page).toHaveURL(new RegExp(`${expectedPath}$`));
-    await expect(this.page.getByText(expectedRole === "parent" ? "家长 Demo" : "孩子 Demo")).toBeVisible();
+    await expect(this.page.getByRole("button", { name: "退出" })).toBeVisible();
   }
 }
 
@@ -121,6 +121,14 @@ class ParentTasksPage extends AuthenticatedApp {
     await this.expectTaskStatus(taskId, "confirmed");
   }
 
+  async requestResubmit(taskId: string, comment: string) {
+    await this.page.goto(`/parent/tasks/${taskId}`);
+    await this.page.getByLabel("审核备注").fill(comment);
+    await this.page.getByRole("button", { name: "要求补充" }).click();
+    await expect(this.page.getByText("已要求孩子补充提交，等待新的打卡内容。")).toBeVisible();
+    await this.expectTaskStatus(taskId, "needs_resubmit");
+  }
+
   async expectTaskStatus(taskId: string, status: TaskStatus) {
     const result = await this.getJson<{ task: StudyTask }>(`/tasks/${taskId}`);
     expect(result.task.status).toBe(status);
@@ -180,8 +188,9 @@ class ChildWishesPage extends AuthenticatedApp {
 
   async requestRedeem(title: string) {
     await this.page.goto("/child/wishes");
-    await this.wishCard(title).getByRole("button", { name: "申请兑换" }).click();
-    await expect(this.page.getByText("兑换申请已发送，等家长确认后扣积分。")).toBeVisible();
+    const wishCard = this.wishCard(title);
+    await wishCard.getByRole("button", { name: "申请兑换" }).click();
+    await expect(wishCard.getByRole("status")).toHaveText("积分已扣除，等待家长确认。");
     await this.expectWishStatus(title, "redeem_requested");
   }
 
@@ -219,11 +228,22 @@ class ParentWishesPage extends AuthenticatedApp {
     await this.page.goto("/parent/wishes");
     await this.wishCard(title).getByRole("button", { name: "确认兑换" }).click();
     const dialog = this.page.getByRole("dialog");
-    await expect(dialog.getByText("确认后会扣减孩子积分，并将心愿标记为已兑换。")).toBeVisible();
+    await expect(dialog.getByText("孩子申请时已扣除积分，确认后会将心愿标记为已兑换。")).toBeVisible();
     await dialog.getByRole("button", { name: "确认兑换" }).click();
 
-    await expect(this.page.getByText("已确认兑换，积分已扣减。")).toBeVisible();
+    await expect(this.page.getByText("已确认兑换。")).toBeVisible();
     await this.expectWishStatus(title, "redeemed");
+  }
+
+  async rejectRedeem(title: string) {
+    await this.page.goto("/parent/wishes");
+    await this.wishCard(title).getByRole("button", { name: "拒绝并返还积分" }).click();
+    const dialog = this.page.getByRole("dialog");
+    await expect(dialog.getByText("拒绝后会返还本次扣除的积分，心愿恢复为可兑换。")).toBeVisible();
+    await dialog.getByRole("button", { name: "拒绝并返还" }).click();
+
+    await expect(this.page.getByText("已拒绝兑换，积分已返还。")).toBeVisible();
+    await this.expectWishStatus(title, "approved");
   }
 
   async expectWishStatus(title: string, status: WishStatus) {
@@ -285,21 +305,130 @@ test.describe("家庭学习任务完整业务流", () => {
     await parentWishes.approveWish(wish.title, rewardPoints);
 
     await auth.loginAsChild();
+    const balanceBeforeRequest = await childWishes.currentBalance();
     await childWishes.requestRedeem(wish.title);
+    await expect.poll(() => childWishes.currentBalance(), {
+      message: "孩子申请兑换时立即扣减积分"
+    }).toBe(balanceBeforeRequest - rewardPoints);
 
     await auth.loginAsParent();
     const balanceBeforeRedeem = await parentWishes.currentBalance();
     await parentWishes.confirmRedeem(wish.title);
     await expect.poll(() => parentWishes.currentBalance(), {
-      message: "家长确认兑换后扣减孩子积分"
-    }).toBe(balanceBeforeRedeem - rewardPoints);
+      message: "家长确认兑换时不再重复扣减积分"
+    }).toBe(balanceBeforeRedeem);
+  });
+
+  test("家长拒绝兑换后返还积分且孩子可以再次申请", async ({ page }) => {
+    const auth = new AuthPage(page);
+    const unique = Date.now();
+    const rewardPoints = 6;
+    const task = {
+      title: `E2E 退款任务 ${unique}`,
+      description: "完成任务获得用于验证心愿退款的积分。",
+      rewardPoints,
+      dueDate: localDate()
+    };
+    const wish = {
+      title: `E2E 退款心愿 ${unique}`,
+      description: "验证拒绝兑换后积分返还。"
+    };
+
+    await auth.loginAsParent();
+    const parentTasks = new ParentTasksPage(page);
+    const taskId = await parentTasks.createTask(task);
+
+    await auth.loginAsChild();
+    const childTasks = new ChildTaskPage(page);
+    const childWishes = new ChildWishesPage(page);
+    await childTasks.submitTaskWithPhoto(taskId, {
+      title: task.title,
+      note: "完成退款流程测试任务。"
+    });
+
+    await auth.loginAsParent();
+    await parentTasks.approveSubmittedTask(taskId, "确认发放测试积分。");
+
+    await auth.loginAsChild();
+    const balanceBeforeRequest = await childWishes.currentBalance();
+    await childWishes.createWish(wish);
+
+    await auth.loginAsParent();
+    const parentWishes = new ParentWishesPage(page);
+    await parentWishes.approveWish(wish.title, rewardPoints);
+
+    await auth.loginAsChild();
+    await childWishes.requestRedeem(wish.title);
+    await expect.poll(() => childWishes.currentBalance()).toBe(balanceBeforeRequest - rewardPoints);
+
+    await auth.loginAsParent();
+    await parentWishes.rejectRedeem(wish.title);
+    await expect.poll(() => parentWishes.currentBalance(), {
+      message: "家长拒绝兑换后返还积分"
+    }).toBe(balanceBeforeRequest);
+
+    await auth.loginAsChild();
+    await childWishes.requestRedeem(wish.title);
+    await expect.poll(() => childWishes.currentBalance(), {
+      message: "退款后的心愿可以再次申请并重新扣分"
+    }).toBe(balanceBeforeRequest - rewardPoints);
+  });
+
+  test("孩子能看到补充原因并直接重新打卡", async ({ page }) => {
+    const auth = new AuthPage(page);
+    const task = {
+      title: `E2E 补充打卡 ${Date.now()}`,
+      description: "验证家长补充反馈闭环。",
+      rewardPoints: 0,
+      dueDate: localDate()
+    };
+
+    await auth.loginAsParent();
+    const parentTasks = new ParentTasksPage(page);
+    const taskId = await parentTasks.createTask(task);
+
+    await auth.loginAsChild();
+    const childTasks = new ChildTaskPage(page);
+    await childTasks.submitTaskWithPhoto(taskId, {
+      title: task.title,
+      note: "第一次提交。"
+    });
+
+    await auth.loginAsParent();
+    await parentTasks.requestResubmit(taskId, "请补拍完整页面。");
+
+    await auth.loginAsChild();
+    await page.goto(`/child/tasks/${taskId}/result`);
+    await expect(page.getByText("请补拍完整页面。")).toBeVisible();
+    await page.getByRole("link", { name: "补充打卡" }).click();
+    await expect(page).toHaveURL(new RegExp(`/child/tasks/${taskId}/check-in$`));
+    await expect(page.getByRole("heading", { name: "完成并打卡" })).toBeVisible();
+  });
+
+  test("错误角色页面自动回到自己的任务清单", async ({ page }) => {
+    const auth = new AuthPage(page);
+
+    await auth.loginAsChild();
+    await page.goto("/parent");
+    await expect(page).toHaveURL(/\/child$/);
+
+    await auth.loginAsParent();
+    await page.goto("/child");
+    await expect(page).toHaveURL(/\/parent$/);
   });
 });
 
 function localDate() {
-  const now = new Date();
-  const offsetMs = now.getTimezoneOffset() * 60 * 1000;
-  return new Date(now.getTime() - offsetMs).toISOString().slice(0, 10);
+  return businessDate(new Date());
+}
+
+function businessDate(date: Date) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(date);
 }
 
 function pngFixture() {

@@ -93,6 +93,21 @@ export const openApiSpec = {
           updatedAt: { type: "string", format: "date-time" },
           submission: {
             anyOf: [{ $ref: "#/components/schemas/SubmissionWithImages" }, { type: "null" }]
+          },
+          latestReview: {
+            anyOf: [
+              {
+                type: "object",
+                properties: {
+                  reviewResult: { type: "string", enum: ["pass", "need_resubmit"] },
+                  comment: { type: "string" },
+                  reviewedAt: { type: "string", format: "date-time" }
+                },
+                required: ["reviewResult", "reviewedAt"]
+              },
+              { type: "null" }
+            ],
+            description: "最近一次家长审核结果；尚未审核时为 null。"
           }
         },
         required: [
@@ -214,7 +229,7 @@ export const openApiSpec = {
           childUserId: { type: "string" },
           changeAmount: { type: "integer" },
           balanceAfter: { type: "integer" },
-          reason: { type: "string", enum: ["task_reward", "wish_redeem"] },
+          reason: { type: "string", enum: ["task_reward", "wish_redeem", "wish_refund"] },
           sourceType: { type: "string", enum: ["task_review", "wish"] },
           sourceId: { type: "string" },
           operatorUserId: { type: "string" },
@@ -236,6 +251,7 @@ export const openApiSpec = {
           },
           parentUserId: { type: "string" },
           rejectReason: { type: "string" },
+          currentRedeemRequestId: { type: "string" },
           createdAt: { type: "string", format: "date-time" },
           updatedAt: { type: "string", format: "date-time" },
           redeemedAt: { type: "string", format: "date-time" }
@@ -493,11 +509,11 @@ export const openApiSpec = {
     "/wishes/{wishId}/redeem-requests": {
       post: {
         tags: ["Wishes"],
-        summary: "孩子申请兑换愿望",
+        summary: "孩子申请兑换愿望并预扣积分",
         security: [{ bearerAuth: [] }],
         parameters: [{ name: "wishId", in: "path", required: true, schema: { type: "string" } }],
         responses: {
-          "200": { description: "兑换申请成功" },
+          "200": { description: "兑换申请成功，返回心愿和扣款流水" },
           "409": { description: "愿望不可兑换或积分不足" }
         }
       }
@@ -509,8 +525,20 @@ export const openApiSpec = {
         security: [{ bearerAuth: [] }],
         parameters: [{ name: "wishId", in: "path", required: true, schema: { type: "string" } }],
         responses: {
-          "200": { description: "兑换确认成功并扣减积分" },
-          "409": { description: "愿望当前状态不可确认或积分不足" }
+          "200": { description: "兑换确认成功，不再变更积分" },
+          "409": { description: "愿望当前状态不可确认" }
+        }
+      }
+    },
+    "/wishes/{wishId}/redeem-rejections": {
+      post: {
+        tags: ["Wishes"],
+        summary: "家长拒绝兑换并返还积分",
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: "wishId", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          "200": { description: "拒绝成功，返回恢复为可兑换的心愿；新版预扣申请同时返回退款流水，旧版未预扣申请返回 null" },
+          "409": { description: "愿望当前状态不可拒绝或缺少原扣款流水" }
         }
       }
     },

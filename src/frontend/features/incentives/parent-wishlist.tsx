@@ -12,12 +12,13 @@ import {
   deleteWish,
   getPointAccount,
   getWishes,
+  rejectWishRedeem,
   rejectWish
 } from "@/features/api/client";
 import { pointLedgerReasonLabel, wishStatusLabel, wishStatusTone } from "@/features/incentives/wish-status";
 import type { ChildPointAccount, PointLedger, Wish } from "@/features/tasks/types";
 
-const demoChild = { id: "child-1", nickname: "孩子 Demo" };
+const demoChild = { id: "child-1", nickname: "孩子" };
 
 export function ParentWishlist() {
   const [account, setAccount] = useState<ChildPointAccount | null>(null);
@@ -26,6 +27,7 @@ export function ParentWishlist() {
   const [requiredPointsByWish, setRequiredPointsByWish] = useState<Record<string, string>>({});
   const [rejectReasonByWish, setRejectReasonByWish] = useState<Record<string, string>>({});
   const [confirmTarget, setConfirmTarget] = useState<Wish | null>(null);
+  const [redeemRejectTarget, setRedeemRejectTarget] = useState<Wish | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Wish | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -119,21 +121,51 @@ export function ParentWishlist() {
 
     try {
       const result = await confirmWishRedeem(confirmTarget.id);
+      if (!result.wish) {
+        throw new ApiError(500, "确认兑换响应缺少心愿数据", "INVALID_API_RESPONSE");
+      }
       replaceWish(result.wish);
-      setLedger((prev) => [result.ledger, ...prev]);
-      setAccount((prev) =>
-        prev
-          ? {
-              ...prev,
-              balance: result.ledger.balanceAfter,
-              totalSpent: prev.totalSpent + Math.abs(result.ledger.changeAmount)
-            }
-          : prev
-      );
       setConfirmTarget(null);
-      setMessage("已确认兑换，积分已扣减。");
+      setMessage("已确认兑换。");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "确认兑换失败");
+    } finally {
+      setActionWishId(null);
+    }
+  }
+
+  async function handleRejectRedeem() {
+    if (!redeemRejectTarget) {
+      return;
+    }
+
+    setError("");
+    setMessage("");
+    setActionWishId(redeemRejectTarget.id);
+
+    try {
+      const result = await rejectWishRedeem(redeemRejectTarget.id);
+      replaceWish(result.wish);
+      if (result.ledger) {
+        setLedger((prev) => [result.ledger!, ...prev]);
+        setAccount((prev) =>
+          prev
+            ? {
+                ...prev,
+                balance: result.ledger!.balanceAfter,
+                totalSpent: Math.max(0, prev.totalSpent - result.ledger!.changeAmount)
+              }
+            : prev
+        );
+      }
+      setRedeemRejectTarget(null);
+      setMessage(
+        result.ledger
+          ? "已拒绝兑换，积分已返还。"
+          : "已拒绝旧版兑换申请，心愿已恢复为可兑换。"
+      );
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "拒绝兑换失败");
     } finally {
       setActionWishId(null);
     }
@@ -263,9 +295,12 @@ export function ParentWishlist() {
                 ) : null}
 
                 {wish.status === "redeem_requested" ? (
-                  <div className="flex justify-start">
+                  <div className="flex flex-wrap justify-start gap-3">
                     <AppButton type="button" onClick={() => setConfirmTarget(wish)}>
                       确认兑换
+                    </AppButton>
+                    <AppButton type="button" variant="secondary" onClick={() => setRedeemRejectTarget(wish)}>
+                      拒绝并返还积分
                     </AppButton>
                   </div>
                 ) : null}
@@ -315,12 +350,28 @@ export function ParentWishlist() {
       <AppConfirmModal
         open={Boolean(confirmTarget)}
         title="确认兑换"
-        description="确认后会扣减孩子积分，并将心愿标记为已兑换。"
+        description="孩子申请时已扣除积分，确认后会将心愿标记为已兑换。"
         detail={confirmTarget ? `${confirmTarget.title}：${confirmTarget.requiredPoints ?? 0} 积分` : undefined}
         confirmText="确认兑换"
         loading={Boolean(confirmTarget && actionWishId === confirmTarget.id)}
         onClose={() => setConfirmTarget(null)}
         onConfirm={() => void handleConfirmRedeem()}
+      />
+
+      <AppConfirmModal
+        open={Boolean(redeemRejectTarget)}
+        title="拒绝兑换"
+        description="拒绝后会返还本次扣除的积分，心愿恢复为可兑换。"
+        detail={
+          redeemRejectTarget
+            ? `${redeemRejectTarget.title}：返还 ${redeemRejectTarget.requiredPoints ?? 0} 积分`
+            : undefined
+        }
+        confirmText="拒绝并返还"
+        tone="danger"
+        loading={Boolean(redeemRejectTarget && actionWishId === redeemRejectTarget.id)}
+        onClose={() => setRedeemRejectTarget(null)}
+        onConfirm={() => void handleRejectRedeem()}
       />
 
       <AppConfirmModal

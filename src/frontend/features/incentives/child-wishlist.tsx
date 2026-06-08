@@ -23,6 +23,7 @@ export function ChildWishlist() {
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [actionWishId, setActionWishId] = useState<string | null>(null);
+  const [redeemNoticeWishId, setRedeemNoticeWishId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Wish | null>(null);
 
   useEffect(() => {
@@ -60,12 +61,23 @@ export function ChildWishlist() {
   async function handleRedeem(wish: Wish) {
     setError("");
     setMessage("");
+    setRedeemNoticeWishId(null);
     setActionWishId(wish.id);
 
     try {
       const result = await requestWishRedeem(wish.id);
       setWishes((prev) => prev.map((item) => (item.id === wish.id ? result.wish : item)));
-      setMessage("兑换申请已发送，等家长确认后扣积分。");
+      setLedger((prev) => [result.ledger, ...prev]);
+      setAccount((prev) =>
+        prev
+          ? {
+              ...prev,
+              balance: result.ledger.balanceAfter,
+              totalSpent: prev.totalSpent + Math.abs(result.ledger.changeAmount)
+            }
+          : prev
+      );
+      setRedeemNoticeWishId(wish.id);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "申请兑换失败");
     } finally {
@@ -80,6 +92,7 @@ export function ChildWishlist() {
 
     setError("");
     setMessage("");
+    setRedeemNoticeWishId(null);
     setActionWishId(deleteTarget.id);
 
     try {
@@ -139,6 +152,7 @@ export function ChildWishlist() {
               {wishes.map((wish) => {
                 const requiredPoints = wish.requiredPoints ?? 0;
                 const canRedeem = wish.status === "approved" && balance >= requiredPoints;
+                const showRedeemNotice = redeemNoticeWishId === wish.id;
 
                 return (
                   <div key={wish.id} className="grid gap-4 rounded-[24px] border-2 border-[#eadfc3] bg-[#fffdf8] p-4 md:grid-cols-[1fr_auto]">
@@ -151,15 +165,29 @@ export function ChildWishlist() {
                       {wish.description ? <p className="mt-1 text-body-sm text-muted">{wish.description}</p> : null}
                       {wish.rejectReason ? <p className="mt-2 text-caption text-brand-coral">驳回原因：{wish.rejectReason}</p> : null}
                     </div>
-                    {wish.status === "approved" ? (
+                    {wish.status === "approved" || showRedeemNotice ? (
                       <div className="flex items-center md:justify-end">
-                        <AppButton
-                          type="button"
-                          disabled={!canRedeem || actionWishId === wish.id}
-                          onClick={() => void handleRedeem(wish)}
-                        >
-                          {actionWishId === wish.id ? "申请中..." : canRedeem ? "申请兑换" : "积分不足"}
-                        </AppButton>
+                        {showRedeemNotice ? (
+                          <div
+                            role="status"
+                            aria-live="polite"
+                            className="relative max-w-[280px] rounded-[18px] border-2 border-[#74c6aa] bg-[#e8f8f0] px-4 py-3 text-body-sm font-bold leading-relaxed text-[#397361] shadow-[0_5px_0_rgba(68,129,111,0.14)]"
+                          >
+                            <span
+                              aria-hidden="true"
+                              className="absolute -top-[8px] left-7 h-3.5 w-3.5 rotate-45 border-l-2 border-t-2 border-[#74c6aa] bg-[#e8f8f0] md:-left-[8px] md:top-1/2 md:-translate-y-1/2 md:border-b-2 md:border-l-2 md:border-t-0"
+                            />
+                            积分已扣除，等待家长确认。
+                          </div>
+                        ) : (
+                          <AppButton
+                            type="button"
+                            disabled={!canRedeem || actionWishId === wish.id}
+                            onClick={() => void handleRedeem(wish)}
+                          >
+                            {actionWishId === wish.id ? "申请中..." : canRedeem ? "申请兑换" : "积分不足"}
+                          </AppButton>
+                        )}
                       </div>
                     ) : null}
                     {wish.status === "rejected" ? (

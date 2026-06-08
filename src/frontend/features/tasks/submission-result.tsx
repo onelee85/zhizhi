@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { AppButton, AppButtonLink } from "@/components/ui/button";
+import { AppButtonLink } from "@/components/ui/button";
 import { AppCard, AppCardTitle } from "@/components/ui/card";
-import { AppModal } from "@/components/ui/modal";
 import { ApiError, getTask } from "@/features/api/client";
 import { toCurrentOriginUrl } from "@/features/tasks/media-url";
 import { getImageCount, statusLabel, statusTone } from "@/features/tasks/status";
 import type { StudyTask } from "@/features/tasks/types";
+import { formatBusinessDateTime } from "@/lib/business-date";
 
 export function SubmissionResult({
   taskId,
@@ -22,7 +22,6 @@ export function SubmissionResult({
   const [task, setTask] = useState<StudyTask | null>(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -60,15 +59,12 @@ export function SubmissionResult({
 
   const images = task.submission?.images ?? [];
   const submittedAt = task.submission?.submittedAt
-    ? new Date(task.submission.submittedAt).toLocaleString("zh-CN", {
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit"
-      })
+    ? formatBusinessDateTime(task.submission.submittedAt)
     : "暂无";
   const dueAt = task.dueTime ? `${task.dueDate ?? "今日"} ${task.dueTime}` : task.dueDate ?? "今日";
-  const aiResultText = task.aiSummary ?? (task.needAiCheck ? "AI 检查还在等待接入或处理中，家长仍可继续查看提交内容。" : "这个任务未开启 AI 检查。");
+  const resubmitHref = returnHref === "/child/calendar"
+    ? `/child/tasks/${task.id}/check-in?from=calendar`
+    : `/child/tasks/${task.id}/check-in`;
 
   return (
     <div className="mx-auto grid max-w-lg gap-5">
@@ -119,7 +115,7 @@ export function SubmissionResult({
           </div>
           <div className="flex justify-between gap-4">
             <dt className="text-muted">AI 检查</dt>
-            <dd className="font-medium text-ink">{task.needAiCheck ? (task.aiSummary ? "已生成" : "处理中") : "未开启"}</dd>
+            <dd className="font-medium text-muted-soft">暂未开放</dd>
           </div>
           <div className="flex justify-between gap-4">
             <dt className="text-muted">家长确认</dt>
@@ -128,11 +124,6 @@ export function SubmissionResult({
             </dd>
           </div>
         </dl>
-        <div className="mt-5">
-          <AppButton type="button" variant="secondary" onClick={() => setIsAiModalOpen(true)}>
-            查看 AI 检查结果
-          </AppButton>
-        </div>
       </AppCard>
 
       <AppCard variant="cream">
@@ -176,25 +167,20 @@ export function SubmissionResult({
               ? `家长要求补充，请${returnLabel}重新提交。`
               : "已提交成功，等待家长查看和确认。"}
         </p>
+        {task.status === "needs_resubmit" ? (
+          <div className="mt-4 grid gap-3">
+            <div className="rounded-[22px] border-2 border-[#f3c7ba] bg-[#fff1eb] p-4">
+              <p className="text-caption font-bold text-brand-coral">需要补充的原因</p>
+              <p className="mt-2 text-body-sm text-[#725d42]">
+                {task.latestReview?.comment || "家长希望你补充更完整的打卡内容。"}
+              </p>
+            </div>
+            <AppButtonLink href={resubmitHref} className="w-fit">
+              补充打卡
+            </AppButtonLink>
+          </div>
+        ) : null}
       </AppCard>
-
-      <AppModal
-        open={isAiModalOpen}
-        title="AI 检查结果"
-        onClose={() => setIsAiModalOpen(false)}
-        footer={
-          <AppButton type="button" onClick={() => setIsAiModalOpen(false)}>
-            知道了
-          </AppButton>
-        }
-      >
-        <div className="grid gap-3 text-body-sm text-[#725d42]">
-          <p className="rounded-[20px] bg-[#fffdf2] p-4">{aiResultText}</p>
-          <p className="text-caption text-muted">
-            最终确认仍由家长处理，AI 结果仅作为辅助信息。
-          </p>
-        </div>
-      </AppModal>
     </div>
   );
 }

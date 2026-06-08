@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { User } from "@/features/tasks/types";
 import { getStoredUser, storeSession, clearSession, login as apiLogin } from "@/features/api/client";
 
@@ -18,11 +18,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname() ?? "";
 
   useEffect(() => {
     setUser(getStoredUser());
     setLoading(false);
   }, []);
+
+  useEffect(() => {
+    if (loading || !user) {
+      return;
+    }
+
+    if (pathname.startsWith("/parent") && user.role !== "parent") {
+      router.replace("/child");
+    } else if (pathname.startsWith("/child") && user.role !== "child") {
+      router.replace("/parent");
+    }
+  }, [loading, pathname, router, user]);
 
   const login = useCallback(async (username: string, password: string) => {
     const session = await apiLogin(username, password);

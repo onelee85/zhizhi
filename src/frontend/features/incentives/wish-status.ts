@@ -18,5 +18,6 @@ export const wishStatusTone: Record<WishStatus, "success" | "warning" | "danger"
 
 export const pointLedgerReasonLabel: Record<PointLedgerReason, string> = {
   task_reward: "任务奖励",
-  wish_redeem: "心愿兑换"
+  wish_redeem: "心愿兑换",
+  wish_refund: "心愿退款"
 };

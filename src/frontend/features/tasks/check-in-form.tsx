@@ -8,6 +8,7 @@ import { AppCard, AppCardTitle } from "@/components/ui/card";
 import { ApiError, getTask, submitTask, uploadPhoto } from "@/features/api/client";
 import { statusLabel, statusTone } from "@/features/tasks/status";
 import type { StudyTask } from "@/features/tasks/types";
+import { getBusinessDate } from "@/lib/business-date";
 
 const MAX_PHOTO_SIZE = 5 * 1024 * 1024;
 const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -222,9 +223,11 @@ export function CheckInForm({
               <AppButton type="submit" loading={isSubmitting} disabled={isSubmitting}>
                 {isSubmitting ? "上传并提交中..." : "提交打卡"}
               </AppButton>
-              <AppButtonLink href={resultHref} variant="secondary">
-                查看提交结果
-              </AppButtonLink>
+              {task.submission ? (
+                <AppButtonLink href={resultHref} variant="secondary">
+                  查看提交结果
+                </AppButtonLink>
+              ) : null}
             </div>
           </form>
         </AppCard>
@@ -234,13 +237,7 @@ export function CheckInForm({
 }
 
 function isFutureDueDate(dueDate?: string) {
-  return Boolean(dueDate && dueDate > getLocalDate());
-}
-
-function getLocalDate() {
-  const now = new Date();
-  const offsetMs = now.getTimezoneOffset() * 60 * 1000;
-  return new Date(now.getTime() - offsetMs).toISOString().slice(0, 10);
+  return Boolean(dueDate && dueDate > getBusinessDate());
 }
 
 function formatDateTitle(date?: string) {

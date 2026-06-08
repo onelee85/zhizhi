@@ -15,7 +15,6 @@ const statusFilterOptions: Array<{ value: "all" | TaskStatus; label: string }> =
   { value: "all", label: "全部状态" },
   { value: "pending", label: statusLabel.pending },
   { value: "submitted", label: statusLabel.submitted },
-  { value: "ai_checking", label: statusLabel.ai_checking },
   { value: "parent_review", label: statusLabel.parent_review },
   { value: "confirmed", label: statusLabel.confirmed },
   { value: "needs_resubmit", label: statusLabel.needs_resubmit }
@@ -119,7 +118,7 @@ export function ParentDashboardView() {
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <AppCard variant="ochre" className="text-[#725d42]">
-          <p className="text-caption text-[#725d42]/70">今日任务</p>
+          <p className="text-caption text-[#725d42]/70">当前任务</p>
           <p className="mt-2 text-display-sm tracking-normal text-[#725d42]">{isLoading ? "-" : total}</p>
         </AppCard>
         <AppCard variant="teal" className="text-white">

@@ -67,6 +67,8 @@ export type ParentReview = {
   reviewedAt: string;
 };
 
+export type LatestReview = Pick<ParentReview, "reviewResult" | "comment" | "reviewedAt">;
+
 export type ChildPointAccount = {
   id: string;
   familyId: string;
@@ -84,7 +86,7 @@ export type PointLedger = {
   childUserId: string;
   changeAmount: number;
   balanceAfter: number;
-  reason: "task_reward" | "wish_redeem";
+  reason: "task_reward" | "wish_redeem" | "wish_refund";
   sourceType: "task_review" | "wish";
   sourceId: string;
   operatorUserId: string;
@@ -103,6 +105,7 @@ export type Wish = {
   status: WishStatus;
   parentUserId?: string;
   rejectReason?: string;
+  currentRedeemRequestId?: string;
   createdAt: string;
   updatedAt: string;
   redeemedAt?: string;
