@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { BrandLogo } from "@/components/ui/brand-logo";
 import { Card, CardTitle } from "@/components/ui/card";
 import { AUTH_REDIRECT_NOTICE_KEY, ApiError } from "@/features/api/client";
 import { useAuth } from "@/features/auth/auth-context";
@@ -40,13 +41,18 @@ export function LoginForm() {
   return (
     <div className="mx-auto grid max-w-lg gap-6 py-6 md:py-section">
       <section className="grid gap-4 rounded-[32px] bg-[#fffdf2] p-5 shadow-[0_10px_0_rgba(114,93,66,0.08)] md:p-7">
-        <div>
-          <p className="w-fit rounded-pill bg-[#82d5bb] px-4 py-2 text-caption-uppercase text-white shadow-[inset_0_-3px_0_rgba(68,129,111,0.28)]">
-            Account
-          </p>
-          <h1 className="mt-4 text-display-md tracking-normal text-ink md:text-display-lg">用户名密码登录</h1>
+        <div className="flex items-center gap-4">
+          <BrandLogo priority className="h-20 w-20 md:h-24 md:w-24" />
+          <div>
+            <p className="w-fit rounded-pill bg-[#82d5bb] px-4 py-2 text-caption-uppercase text-white shadow-[inset_0_-3px_0_rgba(68,129,111,0.28)]">
+              知知小助手
+            </p>
+            <h1 className="mt-3 text-[28px] font-black leading-tight tracking-normal text-ink md:text-[40px]">
+              欢迎回到学习岛
+            </h1>
+          </div>
         </div>
-        <p className="text-body-sm text-muted">登录后会自动进入与你身份对应的任务清单。</p>
+        <p className="text-body-sm text-muted">登录后会自动进入与你身份对应的任务清单，一起完成今天的小任务。</p>
       </section>
 
       <Card className="overflow-hidden bg-canvas/95 p-0 md:p-0">

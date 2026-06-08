@@ -1,0 +1,22 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>知知小助手学习伙伴标志</title>
+  <path d="M70 66C54 55 47 36 57 25C67 14 87 22 99 38" fill="#D9A66D"/>
+  <path d="M186 66C202 55 209 36 199 25C189 14 169 22 157 38" fill="#D9A66D"/>
+  <path d="M69 61C60 52 57 41 62 35C68 29 79 34 88 45" fill="#F7CD67"/>
+  <path d="M187 61C196 52 199 41 194 35C188 29 177 34 168 45" fill="#F7CD67"/>
+  <path d="M70 66C54 55 47 36 57 25C67 14 87 22 99 38M186 66C202 55 209 36 199 25C189 14 169 22 157 38" stroke="#725D42" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M95 42C111 34 145 34 161 42C190 56 205 84 201 116C197 150 174 175 128 175C82 175 59 150 55 116C51 84 66 56 95 42Z" fill="#D9A66D" stroke="#725D42" stroke-width="11" stroke-linejoin="round"/>
+  <ellipse cx="128" cy="116" rx="48" ry="38" fill="#FFFDF2"/>
+  <circle cx="104" cy="91" r="7" fill="#725D42"/>
+  <circle cx="152" cy="91" r="7" fill="#725D42"/>
+  <path d="M118 108C118 101 124 98 128 98C132 98 138 101 138 108C138 114 132 118 128 118C124 118 118 114 118 108Z" fill="#725D42"/>
+  <path d="M128 117C128 126 119 130 113 126M128 117C128 126 137 130 143 126" stroke="#725D42" stroke-width="6" stroke-linecap="round"/>
+  <path d="M76 145C56 153 50 172 61 184C72 196 88 185 99 172" fill="#D9A66D" stroke="#725D42" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M180 145C200 153 206 172 195 184C184 196 168 185 157 172" fill="#D9A66D" stroke="#725D42" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M62 171C83 157 104 159 128 178V229C106 213 84 207 62 215V171Z" fill="#FFFDF2" stroke="#725D42" stroke-width="11" stroke-linejoin="round"/>
+  <path d="M194 171C173 157 152 159 128 178V229C150 213 172 207 194 215V171Z" fill="#FFFDF2" stroke="#725D42" stroke-width="11" stroke-linejoin="round"/>
+  <path d="M128 179V228" stroke="#725D42" stroke-width="8" stroke-linecap="round"/>
+  <path d="M128 37L136 53L154 56L141 69L144 87L128 79L112 87L115 69L102 56L120 53L128 37Z" fill="#F7CD67" stroke="#725D42" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M171 34C179 19 193 16 204 20C202 33 194 43 177 45" fill="#82D5BB" stroke="#725D42" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M177 44C184 36 191 30 201 23" stroke="#44816F" stroke-width="5" stroke-linecap="round"/>
+</svg>
