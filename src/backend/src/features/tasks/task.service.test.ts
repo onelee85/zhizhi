@@ -32,10 +32,10 @@ const baseTask: StudyTask = {
   taskType: "练习",
   title: "完成计算练习",
   description: "完成第 3 页",
+  note: "注意书写",
   dueDate: "2026-05-01",
   dueTime: "20:30",
   needPhoto: true,
-  needAiCheck: false,
   rewardPoints: 10,
   status: "confirmed",
   createdAt: "2026-05-01T10:00:00.000Z",
@@ -134,7 +134,7 @@ describe("TaskService history archive", () => {
 });
 
 describe("TaskService dashboard and review details", () => {
-  it("counts all submitted states and sorts action items first", async () => {
+  it("counts parent review tasks and sorts action items first", async () => {
     const makeTask = (id: string, status: StudyTask["status"], dueDate: string): MockTaskRecord => ({
       task: { ...baseTask, id, status, dueDate, title: id }
     });
@@ -144,19 +144,18 @@ describe("TaskService dashboard and review details", () => {
           makeTask("future", "pending", "2100-01-01"),
           makeTask("today", "pending", "2000-01-01"),
           makeTask("resubmit", "needs_resubmit", "2100-01-02"),
-          makeTask("checking", "ai_checking", "2100-01-03"),
-          makeTask("submitted", "submitted", "2100-01-04"),
-          makeTask("review", "parent_review", "2100-01-05")
+          makeTask("review-1", "parent_review", "2100-01-03"),
+          makeTask("review-2", "parent_review", "2100-01-04")
         ]
       }) as unknown as TaskRepository
     );
 
     const dashboard = await service.getParentDashboard(parent);
 
-    assert.equal(dashboard.summary.waitingReview, 3);
+    assert.equal(dashboard.summary.waitingReview, 2);
     assert.deepEqual(
       dashboard.tasks.map((task) => task.id),
-      ["checking", "submitted", "review", "resubmit", "today", "future"]
+      ["review-1", "review-2", "resubmit", "today", "future"]
     );
   });
 
@@ -224,6 +223,8 @@ function mockRepository({
     getLatestReview: async (taskId: string) => byId.get(taskId)?.latestReview,
     findTaskById: async (taskId: string) => byId.get(taskId)?.task,
     getLatestSubmission: async () => undefined,
-    listImages: async () => []
+    listSubmissions: async () => [],
+    listImages: async () => [],
+    getReviewBySubmission: async () => undefined
   };
 }

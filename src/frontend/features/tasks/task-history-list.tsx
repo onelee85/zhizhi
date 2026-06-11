@@ -6,9 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { AppButton, AppButtonLink } from "@/components/ui/button";
 import { AppCard, AppCardTitle } from "@/components/ui/card";
 import { AppSelect } from "@/components/ui/select";
-import { ApiError, getHistoryTasks } from "@/features/api/client";
-import { getImageCount, statusLabel, statusTone } from "@/features/tasks/status";
-import type { StudyTask, UserRole } from "@/features/tasks/types";
+import { ApiError, getFamilyContext, getHistoryTasks } from "@/features/api/client";
+import { getImageCount, getTaskStatusLabel, getTaskStatusTone } from "@/features/tasks/status";
+import type { FamilyContext, StudyTask, UserRole } from "@/features/tasks/types";
 
 type ChildOption = {
   id: string;
@@ -17,6 +17,7 @@ type ChildOption = {
 
 export function TaskHistoryList({ role }: { role: UserRole }) {
   const [tasks, setTasks] = useState<StudyTask[]>([]);
+  const [familyContext, setFamilyContext] = useState<FamilyContext | null>(null);
   const [childFilter, setChildFilter] = useState("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -33,9 +34,13 @@ export function TaskHistoryList({ role }: { role: UserRole }) {
       setError("");
 
       try {
-        const result = await getHistoryTasks();
+        const [result, context] = await Promise.all([
+          getHistoryTasks(),
+          isParent ? getFamilyContext() : Promise.resolve(null)
+        ]);
         if (active) {
           setTasks(result.tasks);
+          setFamilyContext(context);
         }
       } catch (err) {
         if (active) {
@@ -54,7 +59,10 @@ export function TaskHistoryList({ role }: { role: UserRole }) {
     };
   }, []);
 
-  const childOptions = useMemo(() => getChildOptions(tasks), [tasks]);
+  const childOptions = useMemo(
+    () => getChildOptions(tasks, familyContext),
+    [familyContext, tasks]
+  );
   const filteredTasks = tasks.filter((task) => {
     const matchesChild = !isParent || childFilter === "all" || task.childUserId === childFilter;
     const matchesStartDate = !startDate || (task.dueDate ?? "") >= startDate;
@@ -173,10 +181,10 @@ export function TaskHistoryList({ role }: { role: UserRole }) {
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge>{task.subject}</Badge>
                   <Badge>{task.taskType}</Badge>
-                  <Badge tone={statusTone[task.status]}>{statusLabel[task.status]}</Badge>
+                  <Badge tone={getTaskStatusTone(task)}>{getTaskStatusLabel(task)}</Badge>
                   <Badge tone="neutral">已归档</Badge>
                   {getImageCount(task) > 0 ? <Badge tone="lavender">{getImageCount(task)} 张图</Badge> : null}
-                  {task.rewardPoints ? <Badge tone="success">+{task.rewardPoints} 积分</Badge> : null}
+                  {task.rewardPoints !== undefined ? <Badge tone="success">+{task.rewardPoints} 积分</Badge> : null}
                 </div>
                 <h2 className="mt-3 text-title-md text-ink">{task.title}</h2>
                 <p className="mt-1 line-clamp-2 max-w-3xl text-body-sm text-muted">{task.description}</p>
@@ -184,7 +192,9 @@ export function TaskHistoryList({ role }: { role: UserRole }) {
               <div className="flex flex-col gap-2 text-body-sm text-muted-soft md:items-end md:justify-center">
                 <span>任务日期 {formatDateText(task.dueDate)}</span>
                 <span>归档时间 {formatDateText(task.archivedAt)}</span>
-                {isParent && task.childUserId ? <span>{getChildLabel(task.childUserId)}</span> : null}
+                {isParent && task.childUserId ? (
+                  <span>{getChildLabel(task.childUserId, familyContext)}</span>
+                ) : null}
               </div>
             </Link>
           ))}
@@ -205,7 +215,7 @@ export function TaskHistoryList({ role }: { role: UserRole }) {
   );
 }
 
-function getChildOptions(tasks: StudyTask[]): ChildOption[] {
+function getChildOptions(tasks: StudyTask[], familyContext: FamilyContext | null): ChildOption[] {
   const ids = new Set<string>();
 
   for (const task of tasks) {
@@ -216,12 +226,12 @@ function getChildOptions(tasks: StudyTask[]): ChildOption[] {
 
   return Array.from(ids).map((id) => ({
     id,
-    label: getChildLabel(id)
+    label: getChildLabel(id, familyContext)
   }));
 }
 
-function getChildLabel(childUserId: string) {
-  return childUserId === "child-1" ? "孩子" : childUserId;
+function getChildLabel(childUserId: string, familyContext: FamilyContext | null) {
+  return childUserId === familyContext?.child.id ? familyContext.child.nickname : childUserId;
 }
 
 function getHistoryTaskHref(role: UserRole, task: StudyTask) {

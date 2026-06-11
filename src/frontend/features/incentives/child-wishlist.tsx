@@ -153,6 +153,8 @@ export function ChildWishlist() {
                 const requiredPoints = wish.requiredPoints ?? 0;
                 const canRedeem = wish.status === "approved" && balance >= requiredPoints;
                 const showRedeemNotice = redeemNoticeWishId === wish.id;
+                const remainingPoints = Math.max(0, requiredPoints - balance);
+                const progress = requiredPoints > 0 ? Math.min(100, Math.round((balance / requiredPoints) * 100)) : 0;
 
                 return (
                   <div key={wish.id} className="grid gap-4 rounded-[24px] border-2 border-[#eadfc3] bg-[#fffdf8] p-4 md:grid-cols-[1fr_auto]">
@@ -164,9 +166,29 @@ export function ChildWishlist() {
                       <h2 className="mt-3 text-title-md text-ink">{wish.title}</h2>
                       {wish.description ? <p className="mt-1 text-body-sm text-muted">{wish.description}</p> : null}
                       {wish.rejectReason ? <p className="mt-2 text-caption text-brand-coral">驳回原因：{wish.rejectReason}</p> : null}
+                      {wish.latestRedeemRequest?.status === "rejected" ? (
+                        <p className="mt-3 rounded-[18px] bg-[#fff1eb] p-3 text-body-sm text-brand-coral">
+                          上次兑换未能兑现，已退回 {wish.latestRedeemRequest.requiredPoints} 积分。
+                          {wish.latestRedeemRequest.rejectReason ? ` 原因：${wish.latestRedeemRequest.rejectReason}` : ""}
+                        </p>
+                      ) : null}
                     </div>
+                    {wish.requiredPoints !== undefined && wish.status !== "pending_review" && wish.status !== "rejected" ? (
+                      <div className="grid gap-2 md:col-span-2">
+                        <div className="flex justify-between text-caption text-muted">
+                          <span>当前 {balance} / 需要 {requiredPoints}</span>
+                          <span>{remainingPoints > 0 ? `还差 ${remainingPoints} 分` : "积分已达成"}</span>
+                        </div>
+                        <div className="h-2 overflow-hidden rounded-full bg-[#eadfc3]">
+                          <div
+                            className="h-full rounded-full bg-[#82d5bb] transition-[width]"
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
+                      </div>
+                    ) : null}
                     {wish.status === "approved" || showRedeemNotice ? (
-                      <div className="flex items-center md:justify-end">
+                      <div className="flex items-center md:col-start-2 md:row-start-1 md:justify-end">
                         {showRedeemNotice ? (
                           <div
                             role="status"
@@ -191,7 +213,7 @@ export function ChildWishlist() {
                       </div>
                     ) : null}
                     {wish.status === "rejected" ? (
-                      <div className="flex flex-wrap items-center gap-3 md:justify-end">
+                      <div className="flex flex-wrap items-center gap-3 md:col-start-2 md:row-start-1 md:justify-end">
                         <AppButtonLink
                           href={`/child/wishes/${encodeURIComponent(wish.id)}/edit`}
                           variant="secondary"
@@ -223,7 +245,7 @@ export function ChildWishlist() {
         <AppCard className="overflow-hidden lg:sticky lg:top-24">
           <AppCardTitle>积分流水</AppCardTitle>
           <div className="mt-4 grid gap-3">
-            {ledger.slice(0, 5).map((item) => (
+            {ledger.map((item) => (
               <div key={item.id} className="rounded-[20px] bg-[#fffdf8] px-4 py-3 text-body-sm">
                 <div className="flex items-center justify-between gap-3">
                   <span className="font-bold text-ink">{pointLedgerReasonLabel[item.reason]}</span>

@@ -11,8 +11,6 @@ export type User = {
 
 export type TaskStatus =
   | "pending"
-  | "submitted"
-  | "ai_checking"
   | "parent_review"
   | "confirmed"
   | "needs_resubmit";
@@ -26,10 +24,10 @@ export type StudyTask = {
   taskType: "作业" | "预习" | "复习" | "错题" | "阅读" | "背诵" | "练习";
   title: string;
   description: string;
+  note?: string;
   dueDate: string;
   dueTime?: string;
   needPhoto: boolean;
-  needAiCheck: boolean;
   rewardPoints: number;
   status: TaskStatus;
   createdAt: string;
@@ -69,6 +67,11 @@ export type ParentReview = {
 
 export type LatestReview = Pick<ParentReview, "reviewResult" | "comment" | "reviewedAt">;
 
+export type TaskSubmissionDetail = TaskSubmission & {
+  images: SubmissionImage[];
+  review: LatestReview | null;
+};
+
 export type ChildPointAccount = {
   id: string;
   familyId: string;
@@ -95,6 +98,21 @@ export type PointLedger = {
 
 export type WishStatus = "pending_review" | "approved" | "rejected" | "redeem_requested" | "redeemed";
 
+export type WishRedeemRequestStatus = "pending" | "confirmed" | "rejected";
+
+export type WishRedeemRequest = {
+  id: string;
+  wishId: string;
+  familyId: string;
+  childUserId: string;
+  requiredPoints: number;
+  status: WishRedeemRequestStatus;
+  rejectReason?: string;
+  parentUserId?: string;
+  requestedAt: string;
+  resolvedAt?: string;
+};
+
 export type Wish = {
   id: string;
   familyId: string;
@@ -106,7 +124,31 @@ export type Wish = {
   parentUserId?: string;
   rejectReason?: string;
   currentRedeemRequestId?: string;
+  latestRedeemRequest?: WishRedeemRequest;
   createdAt: string;
   updatedAt: string;
   redeemedAt?: string;
 };
+
+export type FamilyContext = {
+  family: {
+    id: string;
+    name: string;
+  };
+  child: {
+    id: string;
+    nickname: string;
+  };
+};
+
+export type ProductEventName =
+  | "task_created"
+  | "task_submitted"
+  | "task_confirmed"
+  | "task_resubmit_requested"
+  | "wish_created"
+  | "wish_approved"
+  | "wish_rejected"
+  | "wish_redeem_requested"
+  | "wish_redeem_confirmed"
+  | "wish_redeem_rejected";

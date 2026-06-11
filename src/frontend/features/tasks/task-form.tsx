@@ -10,7 +10,6 @@ import type { Subject, StudyTask, TaskType } from "@/features/tasks/types";
 
 const subjects: Subject[] = ["语文", "数学", "英语", "其他"];
 const taskTypes: TaskType[] = ["作业", "预习", "复习", "错题", "阅读", "背诵", "练习"];
-const children = [{ id: "child-1", nickname: "孩子" }];
 
 export function TaskForm({
   task,
@@ -23,27 +22,26 @@ export function TaskForm({
 }) {
   const router = useRouter();
   const isEdit = Boolean(task);
-  const [childUserId, setChildUserId] = useState(task?.childUserId ?? children[0].id);
   const [subject, setSubject] = useState<Subject>(task?.subject ?? "数学");
   const [taskType, setTaskType] = useState<TaskType>(task?.taskType ?? "练习");
   const [title, setTitle] = useState(task?.title ?? "");
   const [description, setDescription] = useState(task?.description ?? "");
+  const [note, setNote] = useState(task?.note ?? "");
   const [dueDate, setDueDate] = useState(task?.dueDate ?? initialDueDate ?? getBusinessDate());
   const [dueTime, setDueTime] = useState(task?.dueTime ?? "20:30");
   const [needPhoto, setNeedPhoto] = useState(task?.needPhoto ?? true);
-  const needAiCheck = false;
-  const [rewardPoints, setRewardPoints] = useState(String(task?.rewardPoints ?? 0));
+  const [rewardPoints, setRewardPoints] = useState(String(task?.rewardPoints ?? 1));
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const parsedRewardPoints = Number.parseInt(rewardPoints || "0", 10);
+  const parsedRewardPoints = Number.parseInt(rewardPoints, 10);
   const canSubmit = useMemo(
     () =>
-      Boolean(childUserId && title.trim() && description.trim() && dueDate) &&
+      Boolean(title.trim() && description.trim() && dueDate && rewardPoints.trim()) &&
       Number.isInteger(parsedRewardPoints) &&
       parsedRewardPoints >= 0 &&
       parsedRewardPoints <= 999,
-    [childUserId, description, dueDate, parsedRewardPoints, title]
+    [description, dueDate, parsedRewardPoints, rewardPoints, title]
   );
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -58,24 +56,23 @@ export function TaskForm({
           taskType,
           title: title.trim(),
           description: description.trim(),
+          note: note.trim(),
           dueDate,
           dueTime: dueTime || undefined,
           needPhoto,
-          needAiCheck,
           rewardPoints: parsedRewardPoints
         });
         router.push(`/parent/tasks/${result.task.id}`);
       } else {
         const result = await createTask({
-          childUserId,
           subject,
           taskType,
           title: title.trim(),
           description: description.trim(),
+          note: note.trim() || undefined,
           dueDate,
           dueTime: dueTime || undefined,
           needPhoto,
-          needAiCheck,
           rewardPoints: parsedRewardPoints
         });
         router.push(`/parent/tasks/${result.task.id}`);
@@ -109,18 +106,6 @@ export function TaskForm({
       <Card>
         <form className="grid gap-5" onSubmit={handleSubmit}>
           <CardTitle>任务信息</CardTitle>
-          {!isEdit && (
-            <label>
-              孩子
-              <select value={childUserId} onChange={(event) => setChildUserId(event.target.value)}>
-                {children.map((child) => (
-                  <option key={child.id} value={child.id}>
-                    {child.nickname}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
           <label>
             科目
             <select value={subject} onChange={(event) => setSubject(event.target.value as Subject)}>
@@ -148,6 +133,16 @@ export function TaskForm({
               onChange={(event) => setDescription(event.target.value)}
               rows={4}
               maxLength={1000}
+            />
+          </label>
+          <label>
+            给孩子的备注
+            <textarea
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              rows={3}
+              maxLength={500}
+              placeholder="可选，例如：先复习例题再开始练习"
             />
           </label>
           <div className="grid gap-4 md:grid-cols-2">
@@ -180,16 +175,6 @@ export function TaskForm({
                 onChange={(event) => setNeedPhoto(event.target.checked)}
               />
               需要拍照
-            </label>
-            <label className="flex items-center gap-3 text-muted-soft">
-              <input
-                className="h-4 w-4"
-                type="checkbox"
-                checked={false}
-                disabled
-                onChange={() => undefined}
-              />
-              AI 检查（暂未开放）
             </label>
           </div>
           {error ? <p className="text-body-sm text-brand-coral">{error}</p> : null}

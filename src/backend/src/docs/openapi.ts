@@ -3,7 +3,7 @@ export const openApiSpec = {
   info: {
     title: "知知小助手后端 API",
     version: "0.1.0",
-    description: "阶段 1-3 后端接口，当前使用 MySQL 实现登录、任务、打卡提交、家长审核、积分、愿望兑换和日历面板。"
+    description: "家庭学习打卡 MVP 接口，使用 MySQL 实现登录、任务、人工审核、积分、愿望兑换、日历、归档和 14 天指标。"
   },
   servers: [
     {
@@ -15,9 +15,12 @@ export const openApiSpec = {
     { name: "System", description: "系统接口" },
     { name: "Auth", description: "认证接口" },
     { name: "Parent", description: "家长端接口" },
+    { name: "Family", description: "当前家庭上下文" },
     { name: "Tasks", description: "任务接口" },
     { name: "Points", description: "积分接口" },
-    { name: "Wishes", description: "愿望接口" }
+    { name: "Wishes", description: "愿望接口" },
+    { name: "Metrics", description: "MVP 使用指标" },
+    { name: "Uploads", description: "受保护图片上传和读取" }
   ],
   components: {
     securitySchemes: {
@@ -71,15 +74,16 @@ export const openApiSpec = {
           taskType: { type: "string", enum: ["作业", "预习", "复习", "错题", "阅读", "背诵", "练习"] },
           title: { type: "string" },
           description: { type: "string" },
+          note: { type: "string", maxLength: 500 },
           dueDate: { type: "string", format: "date" },
           dueTime: { type: "string", example: "20:30" },
           needPhoto: { type: "boolean" },
-          needAiCheck: { type: "boolean" },
           rewardPoints: { type: "integer", minimum: 0, maximum: 999 },
           status: {
             type: "string",
-            enum: ["pending", "submitted", "ai_checking", "parent_review", "confirmed", "needs_resubmit"]
+            enum: ["pending", "parent_review", "confirmed", "needs_resubmit"]
           },
+          isOverdue: { type: "boolean", description: "按 Asia/Shanghai 的日期和截止时间计算。" },
           isArchived: { type: "boolean", description: "是否已按历史任务规则归档。" },
           confirmedAt: {
             anyOf: [{ type: "string", format: "date-time" }, { type: "null" }],
@@ -93,6 +97,11 @@ export const openApiSpec = {
           updatedAt: { type: "string", format: "date-time" },
           submission: {
             anyOf: [{ $ref: "#/components/schemas/SubmissionWithImages" }, { type: "null" }]
+          },
+          submissions: {
+            type: "array",
+            items: { $ref: "#/components/schemas/SubmissionWithImages" },
+            description: "按提交时间正序返回全部提交、图片和对应家长审核。"
           },
           latestReview: {
             anyOf: [
@@ -121,7 +130,6 @@ export const openApiSpec = {
           "description",
           "dueDate",
           "needPhoto",
-          "needAiCheck",
           "rewardPoints",
           "status",
           "createdAt",
@@ -131,18 +139,18 @@ export const openApiSpec = {
       CreateTaskRequest: {
         type: "object",
         properties: {
-          childUserId: { type: "string", example: "child-1" },
+          childUserId: { type: "string", description: "可选；省略时由服务端解析当前家庭唯一孩子。" },
           subject: { type: "string", enum: ["语文", "数学", "英语", "其他"] },
           taskType: { type: "string", enum: ["作业", "预习", "复习", "错题", "阅读", "背诵", "练习"] },
           title: { type: "string", example: "完成数学计算练习第 3 页" },
           description: { type: "string", example: "完成第 3 页全部计算题，订正错题并圈出不会的题。" },
+          note: { type: "string", maxLength: 500 },
           dueDate: { type: "string", format: "date", example: "2026-05-26" },
           dueTime: { type: "string", example: "20:30" },
           needPhoto: { type: "boolean", default: true },
-          needAiCheck: { type: "boolean", default: false },
-          rewardPoints: { type: "integer", minimum: 0, maximum: 999, default: 0 }
+          rewardPoints: { type: "integer", minimum: 0, maximum: 999, default: 1 }
         },
-        required: ["childUserId", "subject", "taskType", "title", "description", "dueDate"]
+        required: ["subject", "taskType", "title", "description", "dueDate"]
       },
       SubmitTaskRequest: {
         type: "object",
@@ -205,6 +213,20 @@ export const openApiSpec = {
                 createdAt: { type: "string", format: "date-time" }
               }
             }
+          },
+          review: {
+            anyOf: [
+              {
+                type: "object",
+                properties: {
+                  reviewResult: { type: "string", enum: ["pass", "need_resubmit"] },
+                  comment: { type: "string" },
+                  reviewedAt: { type: "string", format: "date-time" }
+                },
+                required: ["reviewResult", "reviewedAt"]
+              },
+              { type: "null" }
+            ]
           }
         }
       },
@@ -254,7 +276,18 @@ export const openApiSpec = {
           currentRedeemRequestId: { type: "string" },
           createdAt: { type: "string", format: "date-time" },
           updatedAt: { type: "string", format: "date-time" },
-          redeemedAt: { type: "string", format: "date-time" }
+          redeemedAt: { type: "string", format: "date-time" },
+          latestRedeemRequest: {
+            type: "object",
+            properties: {
+              id: { type: "string" },
+              requiredPoints: { type: "integer" },
+              status: { type: "string", enum: ["pending", "confirmed", "rejected"] },
+              rejectReason: { type: "string" },
+              requestedAt: { type: "string", format: "date-time" },
+              resolvedAt: { type: "string", format: "date-time" }
+            }
+          }
         }
       },
       CreateWishRequest: {
@@ -283,8 +316,16 @@ export const openApiSpec = {
       RejectWishRequest: {
         type: "object",
         properties: {
-          rejectReason: { type: "string", maxLength: 500 }
-        }
+          rejectReason: { type: "string", minLength: 1, maxLength: 500 }
+        },
+        required: ["rejectReason"]
+      },
+      RejectRedeemRequest: {
+        type: "object",
+        properties: {
+          rejectReason: { type: "string", minLength: 1, maxLength: 500 }
+        },
+        required: ["rejectReason"]
       }
     }
   },
@@ -340,11 +381,14 @@ export const openApiSpec = {
     "/uploads/photos/{fileName}": {
       get: {
         tags: ["Uploads"],
-        summary: "读取本地上传照片",
+        summary: "读取当前家庭或当前孩子的提交照片",
+        security: [{ bearerAuth: [] }],
         parameters: [{ name: "fileName", in: "path", required: true, schema: { type: "string" } }],
         responses: {
           "200": { description: "图片文件" },
-          "404": { description: "图片不存在" }
+          "401": { description: "未登录" },
+          "403": { description: "图片不属于当前家庭或孩子" },
+          "404": { description: "图片不存在或未关联提交" }
         }
       }
     },
@@ -393,6 +437,17 @@ export const openApiSpec = {
         }
       }
     },
+    "/family/context": {
+      get: {
+        tags: ["Family"],
+        summary: "获取当前家庭和唯一孩子上下文",
+        security: [{ bearerAuth: [] }],
+        responses: {
+          "200": { description: "当前家庭及唯一孩子" },
+          "409": { description: "当前家庭不是恰好一个有效孩子" }
+        }
+      }
+    },
     "/parent/dashboard": {
       get: {
         tags: ["Parent"],
@@ -400,6 +455,25 @@ export const openApiSpec = {
         security: [{ bearerAuth: [] }],
         responses: {
           "200": { description: "今日看板" },
+          "403": { description: "非家长用户" }
+        }
+      }
+    },
+    "/metrics/mvp": {
+      get: {
+        tags: ["Metrics"],
+        summary: "家长查看轻量 MVP 使用指标",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "days",
+            in: "query",
+            required: false,
+            schema: { type: "integer", minimum: 1, maximum: 30, default: 14 }
+          }
+        ],
+        responses: {
+          "200": { description: "任务创建、提交、确认、补充、心愿和兑换汇总" },
           "403": { description: "非家长用户" }
         }
       }
@@ -536,6 +610,14 @@ export const openApiSpec = {
         summary: "家长拒绝兑换并返还积分",
         security: [{ bearerAuth: [] }],
         parameters: [{ name: "wishId", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/RejectRedeemRequest" }
+            }
+          }
+        },
         responses: {
           "200": { description: "拒绝成功，返回恢复为可兑换的心愿；新版预扣申请同时返回退款流水，旧版未预扣申请返回 null" },
           "409": { description: "愿望当前状态不可拒绝或缺少原扣款流水" }
@@ -576,15 +658,15 @@ export const openApiSpec = {
       },
       delete: {
         tags: ["Wishes"],
-        summary: "删除心愿",
-        description: "孩子和家长的删除入口共用该接口：孩子仅可删除自己的 `rejected` 心愿；家长仅可删除当前家庭内孩子的 `redeemed` 心愿。物理删除该心愿记录。",
+        summary: "孩子删除自己的被驳回心愿",
+        description: "仅心愿所有者孩子可删除 `rejected` 心愿；家长和其他状态均不可删除，以保留兑换与积分追溯记录。",
         security: [{ bearerAuth: [] }],
         parameters: [{ name: "wishId", in: "path", required: true, schema: { type: "string" } }],
         responses: {
           "204": { description: "删除成功" },
-          "403": { description: "角色不支持删除、家长跨家庭访问或孩子跨孩子访问" },
+          "403": { description: "非心愿所有者孩子" },
           "404": { description: "愿望不存在" },
-          "409": { description: "当前角色对应的状态不允许删除（孩子仅 rejected、家长仅 redeemed）" }
+          "409": { description: "心愿状态不是 rejected" }
         }
       }
     },
@@ -606,7 +688,7 @@ export const openApiSpec = {
             in: "query",
             required: false,
             schema: { type: "boolean", default: false },
-            description: "孩子端可传 true，同时返回孩子已提交或已确认的 submitted/ai_checking/parent_review/confirmed 任务。"
+            description: "孩子端可传 true，同时返回待家长确认或已确认的 parent_review/confirmed 任务。"
           }
         ],
         responses: {
@@ -722,7 +804,7 @@ export const openApiSpec = {
       },
       delete: {
         tags: ["Tasks"],
-        summary: "家长删除未完成任务",
+        summary: "家长删除尚未提交的待完成任务",
         security: [{ bearerAuth: [] }],
         parameters: [{ name: "taskId", in: "path", required: true, schema: { type: "string" } }],
         responses: {
@@ -766,7 +848,9 @@ export const openApiSpec = {
           }
         },
         responses: {
-          "201": { description: "审核成功" },
+          "201": { description: "首次审核成功" },
+          "200": { description: "重复确认，返回已有审核和积分结果" },
+          "400": { description: "要求补充但未填写原因" },
           "404": { description: "任务或提交不存在" }
         }
       }

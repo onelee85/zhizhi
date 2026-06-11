@@ -1,6 +1,6 @@
 import { AppError, assertFound } from "../../shared/errors.js";
 import { deleteLocalFile } from "../../server/uploads.js";
-import { getBusinessDate, getMonthRange } from "../../shared/business-date.js";
+import { getBusinessDate, getBusinessTime, getMonthRange } from "../../shared/business-date.js";
 import type { StudyTask, User } from "../../domain/types.js";
 import type { TaskRepository } from "./task.repository.js";
 import type { IncentiveService } from "../incentives/incentive.service.js";
@@ -44,6 +44,14 @@ export class TaskService {
     const task = assertFound(await this.repository.findTaskById(taskId), "Task not found");
     this.assertFamilyAccess(user, task);
     return this.withSubmission(task);
+  }
+
+  async assertPhotoAccess(user: User, fileName: string) {
+    const task = assertFound(
+      await this.repository.findTaskByImageUrl(`/uploads/photos/${fileName}`),
+      "Uploaded image not found"
+    );
+    this.assertFamilyAccess(user, task);
   }
 
   async listCalendarTasks(user: User, query: CalendarTaskQuery) {
@@ -98,22 +106,27 @@ export class TaskService {
       throw new AppError(403, "FORBIDDEN", "Only parents can create tasks");
     }
 
-    if (!(await this.repository.isFamilyChild(parent.familyId, input.childUserId))) {
+    const childUserId = input.childUserId ?? (await this.repository.findOnlyFamilyChild(parent.familyId))?.id;
+    if (!childUserId) {
+      throw new AppError(409, "FAMILY_CHILD_REQUIRED", "Current family must have exactly one active child");
+    }
+
+    if (!(await this.repository.isFamilyChild(parent.familyId, childUserId))) {
       throw new AppError(403, "FORBIDDEN", "Child is outside current family");
     }
 
     return this.repository.createTask({
       familyId: parent.familyId,
-      childUserId: input.childUserId,
+      childUserId,
       creatorUserId: parent.id,
       subject: input.subject,
       taskType: input.taskType,
       title: input.title,
       description: input.description,
+      note: input.note,
       dueDate: input.dueDate,
       dueTime: input.dueTime,
       needPhoto: input.needPhoto,
-      needAiCheck: input.needAiCheck,
       rewardPoints: input.rewardPoints
     });
   }
@@ -122,7 +135,7 @@ export class TaskService {
     const task = assertFound(await this.repository.findTaskById(taskId), "Task not found");
     this.assertParentFamilyAccess(parent, task);
 
-    if (!isIncompleteTask(task)) {
+    if (!isEditableTask(task)) {
       throw new AppError(409, "TASK_NOT_EDITABLE", "Only incomplete tasks can be edited");
     }
 
@@ -133,8 +146,12 @@ export class TaskService {
     const task = assertFound(await this.repository.findTaskById(taskId), "Task not found");
     this.assertParentFamilyAccess(parent, task);
 
-    if (!isIncompleteTask(task)) {
-      throw new AppError(409, "TASK_NOT_DELETABLE", "Only incomplete tasks can be deleted");
+    if (task.status !== "pending") {
+      throw new AppError(409, "TASK_NOT_DELETABLE", "Only unsubmitted pending tasks can be deleted");
+    }
+
+    if (await this.repository.getLatestSubmission(taskId)) {
+      throw new AppError(409, "TASK_NOT_DELETABLE", "Tasks with submissions cannot be deleted");
     }
 
     const imageUrls = await this.repository.listTaskImageUrls(taskId);
@@ -143,77 +160,96 @@ export class TaskService {
   }
 
   async submitTask(child: User, taskId: string, input: SubmitTaskInput) {
-    const task = assertFound(await this.repository.findTaskById(taskId), "Task not found");
+    return this.repository.withTransaction(async (connection) => {
+      const task = assertFound(
+        await this.repository.findTaskByIdForUpdate(connection, taskId),
+        "Task not found"
+      );
 
-    if (child.role !== "child" || task.childUserId !== child.id || task.familyId !== child.familyId) {
-      throw new AppError(403, "FORBIDDEN", "Child cannot submit this task");
-    }
+      if (child.role !== "child" || task.childUserId !== child.id || task.familyId !== child.familyId) {
+        throw new AppError(403, "FORBIDDEN", "Child cannot submit this task");
+      }
 
-    if (task.status !== "pending" && task.status !== "needs_resubmit") {
-      throw new AppError(409, "TASK_NOT_SUBMITTABLE", "Task cannot be submitted in current status");
-    }
+      if (task.status !== "pending" && task.status !== "needs_resubmit") {
+        throw new AppError(409, "TASK_NOT_SUBMITTABLE", "Task cannot be submitted in current status");
+      }
 
-    const imageUrls = task.needPhoto ? input.imageUrls : [];
-    if (task.needPhoto && imageUrls.length === 0) {
-      throw new AppError(400, "VALIDATION_ERROR", "该任务需要至少上传 1 张图片");
-    }
+      const imageUrls = task.needPhoto ? input.imageUrls : [];
+      if (task.needPhoto && imageUrls.length === 0) {
+        throw new AppError(400, "VALIDATION_ERROR", "该任务需要至少上传 1 张图片");
+      }
 
-    const submission = await this.repository.createSubmission({
-      taskId,
-      childUserId: child.id,
-      status: "submitted",
-      childNote: input.childNote
+      const submission = await this.repository.createSubmissionInTransaction(connection, {
+        taskId,
+        childUserId: child.id,
+        status: "submitted",
+        childNote: input.childNote
+      });
+      const images = await this.repository.createImagesInTransaction(connection, submission.id, imageUrls);
+      await this.repository.setTaskStatusInTransaction(connection, taskId, "parent_review");
+
+      return {
+        task: { ...task, status: "parent_review" as const },
+        submission,
+        images
+      };
     });
-    const images = await this.repository.createImages(submission.id, imageUrls);
-    const nextStatus = "parent_review";
-    const updatedTask = await this.repository.setTaskStatus(taskId, nextStatus);
-
-    return {
-      task: updatedTask,
-      submission,
-      images
-    };
   }
 
   async reviewTask(parent: User, taskId: string, input: ReviewTaskInput) {
-    const task = assertFound(await this.repository.findTaskById(taskId), "Task not found");
-    this.assertParentFamilyAccess(parent, task);
+    const result = await this.repository.withTransaction(async (connection) => {
+      const task = assertFound(
+        await this.repository.findTaskByIdForUpdate(connection, taskId),
+        "Task not found"
+      );
+      this.assertParentFamilyAccess(parent, task);
 
-    if (!["submitted", "ai_checking", "parent_review"].includes(task.status)) {
-      throw new AppError(409, "TASK_NOT_REVIEWABLE", "Task cannot be reviewed before child submission");
-    }
+      const submission = await this.repository.getLatestSubmissionForUpdate(connection, taskId);
+      if (!submission) {
+        throw new AppError(409, "SUBMISSION_REQUIRED", "Task cannot be reviewed before child submission");
+      }
 
-    const submission = await this.repository.getLatestSubmission(taskId);
-    if (!submission) {
-      throw new AppError(409, "SUBMISSION_REQUIRED", "Task cannot be reviewed before child submission");
-    }
+      const existingReview = await this.repository.getReviewBySubmissionInTransaction(connection, submission.id);
+      if (existingReview) {
+        return {
+          submission,
+          review: existingReview,
+          pointLedger: await this.incentiveService?.getTaskRewardLedger(task.familyId, task.id) ?? null,
+          idempotent: true
+        };
+      }
 
-    const review = await this.repository.createReview({
-      taskId,
-      submissionId: submission.id,
-      parentUserId: parent.id,
-      reviewResult: input.reviewResult,
-      comment: input.comment
+      if (task.status !== "parent_review") {
+        throw new AppError(409, "TASK_NOT_REVIEWABLE", "Task cannot be reviewed before child submission");
+      }
+
+      const review = await this.repository.createReviewInTransaction(connection, {
+        taskId,
+        submissionId: submission.id,
+        parentUserId: parent.id,
+        reviewResult: input.reviewResult,
+        comment: input.comment
+      });
+
+      const taskStatus = input.reviewResult === "pass" ? "confirmed" : "needs_resubmit";
+      const submissionStatus = input.reviewResult === "pass" ? "parent_confirmed" : "needs_resubmit";
+
+      await this.repository.setTaskStatusInTransaction(connection, taskId, taskStatus);
+      await this.repository.updateSubmissionStatusInTransaction(connection, submission.id, submissionStatus);
+      submission.status = submissionStatus;
+      submission.updatedAt = new Date().toISOString();
+
+      const pointLedger =
+        input.reviewResult === "pass" && this.incentiveService
+          ? await this.incentiveService.awardTaskRewardInTransaction(parent, task, connection)
+          : null;
+
+      return { submission, review, pointLedger, idempotent: false };
     });
-
-    const taskStatus = input.reviewResult === "pass" ? "confirmed" : "needs_resubmit";
-    const submissionStatus = input.reviewResult === "pass" ? "parent_confirmed" : "needs_resubmit";
-
-    await this.repository.setTaskStatus(taskId, taskStatus);
-    await this.repository.updateSubmissionStatus(submission.id, submissionStatus);
-    submission.status = submissionStatus;
-    submission.updatedAt = new Date().toISOString();
-
-    const pointLedger =
-      input.reviewResult === "pass" && this.incentiveService
-        ? await this.incentiveService.awardTaskReward(parent, task, review.id)
-        : null;
 
     return {
       task: await this.withSubmission(assertFound(await this.repository.findTaskById(taskId), "Task not found")),
-      submission,
-      review,
-      pointLedger
+      ...result
     };
   }
 
@@ -232,7 +268,7 @@ export class TaskService {
       confirmed: tasks.filter((task) => task.status === "confirmed").length,
       pending: tasks.filter((task) => task.status === "pending").length,
       needsResubmit: tasks.filter((task) => task.status === "needs_resubmit").length,
-      waitingReview: tasks.filter((task) => ["submitted", "ai_checking", "parent_review"].includes(task.status)).length
+      waitingReview: tasks.filter((task) => task.status === "parent_review").length
     };
 
     return {
@@ -242,21 +278,37 @@ export class TaskService {
   }
 
   private async withSubmission(task: StudyTask) {
-    const submission = await this.repository.getLatestSubmission(task.id);
-    const images = submission ? await this.repository.listImages(submission.id) : [];
+    const submissions = await this.repository.listSubmissions(task.id);
+    const submissionDetails = await Promise.all(
+      submissions.map(async (submission) => {
+        const [images, review] = await Promise.all([
+          this.repository.listImages(submission.id),
+          this.repository.getReviewBySubmission(submission.id)
+        ]);
+        return {
+          ...submission,
+          images,
+          review: review
+            ? {
+                reviewResult: review.reviewResult,
+                comment: review.comment,
+                reviewedAt: review.reviewedAt
+              }
+            : null
+        };
+      })
+    );
+    const submission = submissionDetails.at(-1) ?? null;
     const latestReview = await this.repository.getLatestReview(task.id);
     const archive = await this.getArchiveMetadata(task);
 
     return {
       ...task,
       ...archive,
+      isOverdue: isTaskOverdue(task),
       latestReview: latestReview ?? null,
-      submission: submission
-        ? {
-            ...submission,
-            images
-          }
-        : null
+      submissions: submissionDetails,
+      submission
     };
   }
 
@@ -293,13 +345,13 @@ export class TaskService {
   }
 }
 
-function isIncompleteTask(task: StudyTask) {
+function isEditableTask(task: StudyTask) {
   return task.status === "pending" || task.status === "needs_resubmit";
 }
 
 function compareDashboardTasks(left: StudyTask, right: StudyTask, today: string) {
   const rank = (task: StudyTask) => {
-    if (["submitted", "ai_checking", "parent_review"].includes(task.status)) return 0;
+    if (task.status === "parent_review") return 0;
     if (task.status === "needs_resubmit") return 1;
     if (task.status === "pending" && task.dueDate <= today) return 2;
     if (task.status === "pending" && task.dueDate > today) return 3;
@@ -310,6 +362,19 @@ function compareDashboardTasks(left: StudyTask, right: StudyTask, today: string)
   if (rankDifference !== 0) return rankDifference;
   if (left.dueDate !== right.dueDate) return left.dueDate.localeCompare(right.dueDate);
   return (left.dueTime ?? "99:99").localeCompare(right.dueTime ?? "99:99");
+}
+
+function isTaskOverdue(task: StudyTask) {
+  if (task.status !== "pending" && task.status !== "needs_resubmit") {
+    return false;
+  }
+
+  const today = getBusinessDate();
+  if (task.dueDate < today) {
+    return true;
+  }
+
+  return task.dueDate === today && Boolean(task.dueTime && task.dueTime < getBusinessTime());
 }
 
 function addDays(iso: string, days: number) {

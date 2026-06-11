@@ -7,7 +7,7 @@ import { AppButton, AppButtonLink } from "@/components/ui/button";
 import { AppCard, AppCardTitle } from "@/components/ui/card";
 import { AppConfirmModal } from "@/components/ui/modal";
 import { ApiError, deleteTask, getCalendarTasks } from "@/features/api/client";
-import { statusLabel, statusTone } from "@/features/tasks/status";
+import { getTaskStatusLabel, getTaskStatusTone } from "@/features/tasks/status";
 import type { StudyTask, UserRole } from "@/features/tasks/types";
 import { getBusinessDate } from "@/lib/business-date";
 
@@ -63,7 +63,7 @@ export function TaskCalendarPanel({ role }: { role: UserRole }) {
   const selectedTasks = tasksByDate.get(selectedDate) ?? [];
   const currentMonthTaskCount = tasks.filter((task) => task.dueDate?.startsWith(visibleMonth)).length;
   const confirmedCount = tasks.filter((task) => task.status === "confirmed").length;
-  const waitingCount = tasks.filter((task) => ["submitted", "ai_checking", "parent_review"].includes(task.status)).length;
+  const waitingCount = tasks.filter((task) => task.status === "parent_review").length;
   const canManage = role === "parent";
 
   function goToMonth(delta: number) {
@@ -219,7 +219,7 @@ export function TaskCalendarPanel({ role }: { role: UserRole }) {
                     {dayTasks.slice(0, 3).map((task) => (
                       <span
                         key={task.id}
-                        className={`h-1.5 w-1.5 rounded-full ${getTaskDotClass(task.status)}`}
+                        className={`h-1.5 w-1.5 rounded-full ${getTaskDotClass(task)}`}
                         aria-hidden
                       />
                     ))}
@@ -234,7 +234,7 @@ export function TaskCalendarPanel({ role }: { role: UserRole }) {
                         href={getTaskHref(role, task)}
                         className={[
                           "truncate rounded-full px-2 py-1 text-left text-[11px] font-bold leading-tight transition hover:-translate-y-0.5 md:text-caption",
-                          getTaskChipClass(task.status)
+                          getTaskChipClass(task)
                         ].join(" ")}
                       >
                         {task.dueTime ? `${task.dueTime} ` : ""}
@@ -313,9 +313,9 @@ function SelectedDatePanel({
           <div key={task.id} className="rounded-[22px] border-2 border-[#eadfc3] bg-[#fffdf8] p-3">
             <div className="flex flex-wrap items-center gap-2">
               <Badge>{task.subject}</Badge>
-              <Badge tone={statusTone[task.status]}>{statusLabel[task.status]}</Badge>
+              <Badge tone={getTaskStatusTone(task)}>{getTaskStatusLabel(task)}</Badge>
               {task.isArchived ? <Badge tone="neutral">已归档</Badge> : null}
-              {task.rewardPoints ? <Badge tone="success">+{task.rewardPoints} 积分</Badge> : null}
+              {task.rewardPoints !== undefined ? <Badge tone="success">+{task.rewardPoints} 积分</Badge> : null}
             </div>
             <Link href={getTaskHref(role, task)} className="mt-3 block text-title-sm text-ink hover:text-[#44816f]">
               {task.title}
@@ -330,13 +330,15 @@ function SelectedDatePanel({
                       <Link href={`/parent/tasks/${task.id}/edit`} className="font-bold text-[#725d42] hover:text-[#44816f]">
                         编辑
                       </Link>
-                      <button
-                        type="button"
-                        className="font-bold text-brand-coral hover:text-[#c94a40]"
-                        onClick={() => onDelete(task)}
-                      >
-                        删除
-                      </button>
+                      {task.status === "pending" && (task.submissions?.length ?? 0) === 0 ? (
+                        <button
+                          type="button"
+                          className="font-bold text-brand-coral hover:text-[#c94a40]"
+                          onClick={() => onDelete(task)}
+                        >
+                          删除
+                        </button>
+                      ) : null}
                     </>
                   ) : null}
                 </span>
@@ -422,32 +424,36 @@ function getTaskHref(role: UserRole, task: StudyTask) {
 }
 
 function isChildResultTask(task: StudyTask) {
-  return ["submitted", "ai_checking", "parent_review", "confirmed", "needs_resubmit"].includes(task.status);
+  return task.status !== "pending";
 }
 
 function isIncompleteTask(task: StudyTask) {
   return task.status === "pending" || task.status === "needs_resubmit";
 }
 
-function getTaskChipClass(status: StudyTask["status"]) {
-  if (status === "confirmed") {
+function getTaskChipClass(task: StudyTask) {
+  if (task.isOverdue) {
+    return "bg-[#fff1eb] text-brand-coral";
+  }
+  if (task.status === "confirmed") {
     return "bg-[#dff3ea] text-[#44816f]";
   }
 
-  if (status === "needs_resubmit") {
+  if (task.status === "needs_resubmit") {
     return "bg-[#fff1eb] text-brand-coral";
   }
 
-  if (status === "submitted" || status === "ai_checking" || status === "parent_review") {
+  if (task.status === "parent_review") {
     return "bg-[#fff3c9] text-[#725d42]";
   }
 
   return "bg-[#f7f0d8] text-[#725d42]";
 }
 
-function getTaskDotClass(status: StudyTask["status"]) {
-  if (status === "confirmed") return "bg-[#44816f]";
-  if (status === "needs_resubmit") return "bg-brand-coral";
-  if (["submitted", "ai_checking", "parent_review"].includes(status)) return "bg-[#e8b94a]";
+function getTaskDotClass(task: StudyTask) {
+  if (task.isOverdue) return "bg-brand-coral";
+  if (task.status === "confirmed") return "bg-[#44816f]";
+  if (task.status === "needs_resubmit") return "bg-brand-coral";
+  if (task.status === "parent_review") return "bg-[#e8b94a]";
   return "bg-[#9a9a9a]";
 }

@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
-import type { ChildPointAccount, PointLedger, StudyTask, Wish } from "../../domain/types.js";
+import type {
+  ChildPointAccount,
+  PointLedger,
+  StudyTask,
+  Wish,
+  WishRedeemRequest
+} from "../../domain/types.js";
 import type { DbPool } from "../../server/db.js";
 import { AppError } from "../../shared/errors.js";
 
@@ -44,6 +50,19 @@ type WishRow = RowDataPacket & {
   created_at: string;
   updated_at: string;
   redeemed_at: string | null;
+};
+
+type WishRedeemRequestRow = RowDataPacket & {
+  id: string;
+  wish_id: string;
+  family_id: string;
+  child_user_id: string;
+  required_points: number;
+  status: WishRedeemRequest["status"];
+  reject_reason: string | null;
+  parent_user_id: string | null;
+  requested_at: string;
+  resolved_at: string | null;
 };
 
 export class IncentiveRepository {
@@ -92,47 +111,61 @@ export class IncentiveRepository {
       return null;
     }
 
-    return this.withTransaction(async (connection) => {
-      await this.ensureAccount(connection, task.familyId, task.childUserId);
-      const existingLedger = await this.findLedgerBySource(connection, task.familyId, "task_review", task.id);
+    return this.withTransaction((connection) => this.awardTaskRewardInTransaction(connection, task, operatorUserId));
+  }
 
-      if (existingLedger) {
-        return existingLedger;
-      }
+  async awardTaskRewardInTransaction(
+    connection: PoolConnection,
+    task: StudyTask,
+    operatorUserId: string
+  ) {
+    if (task.rewardPoints <= 0) {
+      return null;
+    }
 
-      const account = await this.findAccountForUpdate(connection, task.familyId, task.childUserId);
-      const nextBalance = account.balance + task.rewardPoints;
-      const now = currentTimestamp();
-      const ledger: PointLedger = {
-        id: randomUUID(),
-        familyId: task.familyId,
-        childUserId: task.childUserId,
+    await this.ensureAccount(connection, task.familyId, task.childUserId);
+    const existingLedger = await this.findLedgerBySource(connection, task.familyId, "task_review", task.id);
+
+    if (existingLedger) {
+      return existingLedger;
+    }
+
+    const account = await this.findAccountForUpdate(connection, task.familyId, task.childUserId);
+    const nextBalance = account.balance + task.rewardPoints;
+    const now = currentTimestamp();
+    const ledger: PointLedger = {
+      id: randomUUID(),
+      familyId: task.familyId,
+      childUserId: task.childUserId,
+      changeAmount: task.rewardPoints,
+      balanceAfter: nextBalance,
+      reason: "task_reward",
+      sourceType: "task_review",
+      sourceId: task.id,
+      operatorUserId,
+      createdAt: now.iso
+    };
+
+    await connection.execute<ResultSetHeader>(
+      `update child_point_account
+       set balance = :balance,
+           total_earned = total_earned + :changeAmount,
+           updated_at = :updatedAt
+       where id = :accountId`,
+      {
+        accountId: account.id,
+        balance: nextBalance,
         changeAmount: task.rewardPoints,
-        balanceAfter: nextBalance,
-        reason: "task_reward",
-        sourceType: "task_review",
-        sourceId: task.id,
-        operatorUserId,
-        createdAt: now.iso
-      };
+        updatedAt: now.mysql
+      }
+    );
+    await this.insertLedger(connection, ledger, now.mysql);
 
-      await connection.execute<ResultSetHeader>(
-        `update child_point_account
-         set balance = :balance,
-             total_earned = total_earned + :changeAmount,
-             updated_at = :updatedAt
-         where id = :accountId`,
-        {
-          accountId: account.id,
-          balance: nextBalance,
-          changeAmount: task.rewardPoints,
-          updatedAt: now.mysql
-        }
-      );
-      await this.insertLedger(connection, ledger, now.mysql);
+    return ledger;
+  }
 
-      return ledger;
-    });
+  async findTaskRewardLedger(familyId: string, taskId: string) {
+    return this.findLedgerBySource(this.db, familyId, "task_review", taskId);
   }
 
   async listWishes(familyId: string, childUserId?: string) {
@@ -158,6 +191,19 @@ export class IncentiveRepository {
     );
 
     return rows[0] ? mapWish(rows[0]) : undefined;
+  }
+
+  async findLatestRedeemRequest(wishId: string) {
+    const [rows] = await this.db.execute<WishRedeemRequestRow[]>(
+      `select *
+       from wish_redeem_request
+       where wish_id = :wishId
+       order by requested_at desc
+       limit 1`,
+      { wishId }
+    );
+
+    return rows[0] ? mapRedeemRequest(rows[0]) : undefined;
   }
 
   async createWish(input: Pick<Wish, "familyId" | "childUserId" | "title" | "description">) {
@@ -311,6 +357,23 @@ export class IncentiveRepository {
       );
       await this.insertLedger(connection, ledger, now.mysql);
       await connection.execute<ResultSetHeader>(
+        `insert into wish_redeem_request (
+           id, wish_id, family_id, child_user_id, required_points,
+           status, requested_at
+         ) values (
+           :id, :wishId, :familyId, :childUserId, :requiredPoints,
+           'pending', :requestedAt
+         )`,
+        {
+          id: requestId,
+          wishId: lockedWish.id,
+          familyId: lockedWish.familyId,
+          childUserId: lockedWish.childUserId,
+          requiredPoints: lockedWish.requiredPoints,
+          requestedAt: now.mysql
+        }
+      );
+      await connection.execute<ResultSetHeader>(
         `update wish
          set status = 'redeem_requested',
              current_redeem_request_id = :requestId,
@@ -352,12 +415,20 @@ export class IncentiveRepository {
 
       const now = currentTimestamp();
       await this.markWishRedeemed(connection, lockedWish.id, parentUserId, now.mysql);
+      await this.resolveRedeemRequest(
+        connection,
+        lockedWish.currentRedeemRequestId,
+        "confirmed",
+        parentUserId,
+        undefined,
+        now.mysql
+      );
 
       return assertWish(await this.findWishForUpdate(connection, lockedWish.id));
     });
   }
 
-  async rejectRedeem(wish: Wish, parentUserId: string) {
+  async rejectRedeem(wish: Wish, parentUserId: string, rejectReason: string) {
     return this.withTransaction(async (connection) => {
       const lockedWish = await this.findWishForUpdate(connection, wish.id);
 
@@ -388,6 +459,14 @@ export class IncentiveRepository {
       );
 
       if (existingRefund) {
+        await this.resolveRedeemRequest(
+          connection,
+          lockedWish.currentRedeemRequestId,
+          "rejected",
+          parentUserId,
+          rejectReason,
+          now.mysql
+        );
         await this.markWishRedeemRejected(connection, lockedWish.id, parentUserId, now.mysql);
         return {
           wish: assertWish(await this.findWishForUpdate(connection, lockedWish.id)),
@@ -439,6 +518,14 @@ export class IncentiveRepository {
         }
       );
       await this.insertLedger(connection, ledger, now.mysql);
+      await this.resolveRedeemRequest(
+        connection,
+        lockedWish.currentRedeemRequestId,
+        "rejected",
+        parentUserId,
+        rejectReason,
+        now.mysql
+      );
       await this.markWishRedeemRejected(connection, lockedWish.id, parentUserId, now.mysql);
 
       return {
@@ -610,6 +697,31 @@ export class IncentiveRepository {
       { wishId, parentUserId, updatedAt }
     );
   }
+
+  private async resolveRedeemRequest(
+    db: PoolConnection,
+    requestId: string,
+    status: "confirmed" | "rejected",
+    parentUserId: string,
+    rejectReason: string | undefined,
+    resolvedAt: string
+  ) {
+    await db.execute<ResultSetHeader>(
+      `update wish_redeem_request
+       set status = :status,
+           reject_reason = :rejectReason,
+           parent_user_id = :parentUserId,
+           resolved_at = :resolvedAt
+       where id = :requestId and status = 'pending'`,
+      {
+        requestId,
+        status,
+        rejectReason: rejectReason ?? null,
+        parentUserId,
+        resolvedAt
+      }
+    );
+  }
 }
 
 function mapAccount(row: AccountRow): ChildPointAccount {
@@ -655,6 +767,21 @@ function mapWish(row: WishRow): Wish {
     createdAt: toIsoDateTime(row.created_at),
     updatedAt: toIsoDateTime(row.updated_at),
     redeemedAt: row.redeemed_at ? toIsoDateTime(row.redeemed_at) : undefined
+  };
+}
+
+function mapRedeemRequest(row: WishRedeemRequestRow): WishRedeemRequest {
+  return {
+    id: row.id,
+    wishId: row.wish_id,
+    familyId: row.family_id,
+    childUserId: row.child_user_id,
+    requiredPoints: row.required_points,
+    status: row.status,
+    rejectReason: row.reject_reason ?? undefined,
+    parentUserId: row.parent_user_id ?? undefined,
+    requestedAt: toIsoDateTime(row.requested_at),
+    resolvedAt: row.resolved_at ? toIsoDateTime(row.resolved_at) : undefined
   };
 }
 

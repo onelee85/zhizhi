@@ -1,11 +1,16 @@
 import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const envFiles = [".env.local", ".env"];
+const backendRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const envFiles = [
+  resolve(backendRoot, ".env.local"),
+  resolve(backendRoot, ".env"),
+  resolve(process.cwd(), ".env.local"),
+  resolve(process.cwd(), ".env")
+];
 
-for (const file of envFiles) {
-  const filePath = resolve(process.cwd(), file);
-
+for (const filePath of new Set(envFiles)) {
   if (!existsSync(filePath)) {
     continue;
   }
@@ -33,4 +38,3 @@ for (const file of envFiles) {
     }
   }
 }
-

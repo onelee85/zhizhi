@@ -10,6 +10,11 @@ import { TaskRepository } from "./features/tasks/task.repository.js";
 import { TaskService } from "./features/tasks/task.service.js";
 import { IncentiveRepository } from "./features/incentives/incentive.repository.js";
 import { IncentiveService } from "./features/incentives/incentive.service.js";
+import { FamilyRepository } from "./features/family/family.repository.js";
+import { FamilyService } from "./features/family/family.service.js";
+import { ProductMetricsRepository } from "./features/metrics/product-metrics.repository.js";
+import { ProductMetricsService } from "./features/metrics/product-metrics.service.js";
+import { mvpMetricsQuerySchema } from "./features/metrics/product-metrics.schemas.js";
 import {
   calendarTaskQuerySchema,
   createTaskSchema,
@@ -22,6 +27,7 @@ import {
 import {
   approveWishSchema,
   createWishSchema,
+  rejectRedeemSchema,
   rejectWishSchema,
   updateWishSchema
 } from "./features/incentives/incentive.schemas.js";
@@ -31,6 +37,8 @@ const taskRepository = new TaskRepository(pool);
 const incentiveRepository = new IncentiveRepository(pool);
 const incentiveService = new IncentiveService(incentiveRepository);
 const taskService = new TaskService(taskRepository, incentiveService);
+const familyService = new FamilyService(new FamilyRepository(pool));
+const productMetricsService = new ProductMetricsService(new ProductMetricsRepository(pool));
 
 router.add("GET", "/health", ({ response }) => {
   sendJson(response, 200, {
@@ -47,7 +55,9 @@ router.add("GET", "/docs", ({ response }) => {
   sendHtml(response, 200, swaggerUiHtml());
 });
 
-router.add("GET", "/uploads/photos/:fileName", async ({ response, params }) => {
+router.add("GET", "/uploads/photos/:fileName", async ({ request, response, params }) => {
+  const user = await requireUser(request.headers.authorization);
+  await taskService.assertPhotoAccess(user, params.fileName);
   await sendLocalUploadedFile(response, params.fileName);
 });
 
@@ -63,6 +73,11 @@ router.add("GET", "/auth/me", async ({ request, response }) => {
   });
 });
 
+router.add("GET", "/family/context", async ({ request, response }) => {
+  const user = await requireUser(request.headers.authorization);
+  sendJson(response, 200, await familyService.getContext(user));
+});
+
 router.add("POST", "/uploads/photos", async ({ request, response }) => {
   await requireRole(request.headers.authorization, "child");
   sendJson(response, 201, await saveUploadedFile(request));
@@ -70,7 +85,31 @@ router.add("POST", "/uploads/photos", async ({ request, response }) => {
 
 router.add("GET", "/parent/dashboard", async ({ request, response }) => {
   const parent = await requireRole(request.headers.authorization, "parent");
-  sendJson(response, 200, await taskService.getParentDashboard(parent));
+  const context = await familyService.getContext(parent);
+  const [dashboard, points, metrics] = await Promise.all([
+    taskService.getParentDashboard(parent),
+    incentiveService.getPointAccount(parent, context.child.id),
+    productMetricsService.getMvpSummary(parent, context.child.id, 14)
+  ]);
+  sendJson(response, 200, {
+    ...dashboard,
+    child: context.child,
+    pointAccount: points.account,
+    metrics
+  });
+});
+
+router.add("GET", "/metrics/mvp", async ({ request, response, query }) => {
+  const parent = await requireRole(request.headers.authorization, "parent");
+  const context = await familyService.getContext(parent);
+  const parsedQuery = mvpMetricsQuerySchema.parse({
+    days: query.get("days") ?? undefined
+  });
+  sendJson(
+    response,
+    200,
+    await productMetricsService.getMvpSummary(parent, context.child.id, parsedQuery.days)
+  );
 });
 
 router.add("GET", "/points/account", async ({ request, response, query }) => {
@@ -88,8 +127,15 @@ router.add("GET", "/wishes", async ({ request, response, query }) => {
 router.add("POST", "/wishes", async ({ request, response }) => {
   const child = await requireRole(request.headers.authorization, "child");
   const body = createWishSchema.parse(await readJson(request));
+  const wish = await incentiveService.createWish(child, body);
+  await productMetricsService.record(child, {
+    eventName: "wish_created",
+    childUserId: child.id,
+    entityType: "wish",
+    entityId: wish.id
+  });
   sendJson(response, 201, {
-    wish: await incentiveService.createWish(child, body)
+    wish
   });
 });
 
@@ -117,34 +163,73 @@ router.add("DELETE", "/wishes/:wishId", async ({ request, response, params }) =>
 router.add("PATCH", "/wishes/:wishId/approve", async ({ request, response, params }) => {
   const parent = await requireRole(request.headers.authorization, "parent");
   const body = approveWishSchema.parse(await readJson(request));
+  const wish = await incentiveService.approveWish(parent, params.wishId, body);
+  await productMetricsService.record(parent, {
+    eventName: "wish_approved",
+    childUserId: wish.childUserId,
+    entityType: "wish",
+    entityId: wish.id,
+    metadata: { requiredPoints: wish.requiredPoints }
+  });
   sendJson(response, 200, {
-    wish: await incentiveService.approveWish(parent, params.wishId, body)
+    wish
   });
 });
 
 router.add("PATCH", "/wishes/:wishId/reject", async ({ request, response, params }) => {
   const parent = await requireRole(request.headers.authorization, "parent");
   const body = rejectWishSchema.parse(await readJson(request));
+  const wish = await incentiveService.rejectWish(parent, params.wishId, body);
+  await productMetricsService.record(parent, {
+    eventName: "wish_rejected",
+    childUserId: wish.childUserId,
+    entityType: "wish",
+    entityId: wish.id
+  });
   sendJson(response, 200, {
-    wish: await incentiveService.rejectWish(parent, params.wishId, body)
+    wish
   });
 });
 
 router.add("POST", "/wishes/:wishId/redeem-requests", async ({ request, response, params }) => {
   const child = await requireRole(request.headers.authorization, "child");
-  sendJson(response, 200, await incentiveService.requestRedeem(child, params.wishId));
+  const result = await incentiveService.requestRedeem(child, params.wishId);
+  await productMetricsService.record(child, {
+    eventName: "wish_redeem_requested",
+    childUserId: child.id,
+    entityType: "wish",
+    entityId: result.wish.id,
+    metadata: { requestId: result.wish.currentRedeemRequestId }
+  });
+  sendJson(response, 200, result);
 });
 
 router.add("POST", "/wishes/:wishId/redeem-confirmations", async ({ request, response, params }) => {
   const parent = await requireRole(request.headers.authorization, "parent");
+  const wish = await incentiveService.confirmRedeem(parent, params.wishId);
+  await productMetricsService.record(parent, {
+    eventName: "wish_redeem_confirmed",
+    childUserId: wish.childUserId,
+    entityType: "wish",
+    entityId: wish.id
+  });
   sendJson(response, 200, {
-    wish: await incentiveService.confirmRedeem(parent, params.wishId)
+    wish
   });
 });
 
 router.add("POST", "/wishes/:wishId/redeem-rejections", async ({ request, response, params }) => {
   const parent = await requireRole(request.headers.authorization, "parent");
-  sendJson(response, 200, await incentiveService.rejectRedeem(parent, params.wishId));
+  const body = rejectRedeemSchema.parse(await readJson(request));
+  const result = await incentiveService.rejectRedeem(parent, params.wishId, body.rejectReason);
+  await productMetricsService.record(parent, {
+    eventName: "wish_redeem_rejected",
+    childUserId: result.wish.childUserId,
+    entityType: "wish",
+    entityId: result.wish.id,
+    metadata: { refundAmount: result.ledger?.changeAmount ?? 0 }
+  });
+  sendJson(response, 200, result);
 });
 
 router.add("GET", "/tasks/today", async ({ request, response, query }) => {
@@ -181,8 +266,15 @@ router.add("GET", "/tasks/history", async ({ request, response, query }) => {
 router.add("POST", "/tasks", async ({ request, response }) => {
   const parent = await requireRole(request.headers.authorization, "parent");
   const body = createTaskSchema.parse(await readJson(request));
+  const task = await taskService.createTask(parent, body);
+  await productMetricsService.record(parent, {
+    eventName: "task_created",
+    childUserId: task.childUserId,
+    entityType: "task",
+    entityId: task.id
+  });
   sendJson(response, 201, {
-    task: await taskService.createTask(parent, body)
+    task
   });
 });
 
@@ -210,13 +302,31 @@ router.add("DELETE", "/tasks/:taskId", async ({ request, response, params }) => 
 router.add("POST", "/tasks/:taskId/submissions", async ({ request, response, params }) => {
   const child = await requireRole(request.headers.authorization, "child");
   const body = submitTaskSchema.parse(await readJson(request));
-  sendJson(response, 201, await taskService.submitTask(child, params.taskId, body));
+  const result = await taskService.submitTask(child, params.taskId, body);
+  await productMetricsService.record(child, {
+    eventName: "task_submitted",
+    childUserId: child.id,
+    entityType: "task",
+    entityId: params.taskId,
+    metadata: { submissionId: result.submission.id }
+  });
+  sendJson(response, 201, result);
 });
 
 router.add("POST", "/tasks/:taskId/reviews", async ({ request, response, params }) => {
   const parent = await requireRole(request.headers.authorization, "parent");
   const body = reviewTaskSchema.parse(await readJson(request));
-  sendJson(response, 201, await taskService.reviewTask(parent, params.taskId, body));
+  const result = await taskService.reviewTask(parent, params.taskId, body);
+  if (!result.idempotent) {
+    await productMetricsService.record(parent, {
+      eventName: body.reviewResult === "pass" ? "task_confirmed" : "task_resubmit_requested",
+      childUserId: result.task.childUserId,
+      entityType: "task",
+      entityId: params.taskId,
+      metadata: { submissionId: result.submission.id }
+    });
+  }
+  sendJson(response, result.idempotent ? 200 : 201, result);
 });
 
 export function createApp() {

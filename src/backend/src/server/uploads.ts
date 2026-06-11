@@ -88,7 +88,7 @@ export async function sendLocalUploadedFile(response: ServerResponse, fileName: 
     const body = await readFile(filePath);
     response.writeHead(200, {
       "content-type": ALLOWED_TYPES[extname(fileName).slice(1) as AllowedExtension],
-      "cache-control": "public, max-age=31536000, immutable"
+      "cache-control": "private, max-age=3600"
     });
     response.end(body);
   } catch {

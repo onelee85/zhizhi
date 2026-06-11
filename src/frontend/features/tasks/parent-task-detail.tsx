@@ -7,8 +7,8 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { AppConfirmModal } from "@/components/ui/modal";
 import { ApiError, deleteTask, getTask, reviewTask } from "@/features/api/client";
-import { toCurrentOriginUrl } from "@/features/tasks/media-url";
-import { getImageCount, statusLabel, statusTone } from "@/features/tasks/status";
+import { ProtectedImage } from "@/features/tasks/protected-image";
+import { getImageCount, getTaskStatusLabel, getTaskStatusTone } from "@/features/tasks/status";
 import type { StudyTask } from "@/features/tasks/types";
 
 export function ParentTaskDetail({ taskId, returnHref = "/parent" }: { taskId: string; returnHref?: string }) {
@@ -49,6 +49,10 @@ export function ParentTaskDetail({ taskId, returnHref = "/parent" }: { taskId: s
 
   async function handleReview(reviewResult: "pass" | "need_resubmit") {
     setError("");
+    if (reviewResult === "need_resubmit" && !comment.trim()) {
+      setError("要求补充时必须填写清楚的原因");
+      return;
+    }
     setIsSubmitting(true);
 
     try {
@@ -86,10 +90,10 @@ export function ParentTaskDetail({ taskId, returnHref = "/parent" }: { taskId: s
     return <Card className="text-body-sm text-brand-coral">{error || "任务不存在"}</Card>;
   }
 
-  const canEditOrDelete = task.status === "pending" || task.status === "needs_resubmit";
-  const canReview =
-    Boolean(task.submission) && ["submitted", "ai_checking", "parent_review"].includes(task.status);
-  const images = task.submission?.images ?? [];
+  const canEdit = !task.isArchived && (task.status === "pending" || task.status === "needs_resubmit");
+  const canDelete = !task.isArchived && task.status === "pending" && (task.submissions?.length ?? 0) === 0;
+  const canReview = Boolean(task.submission) && task.status === "parent_review";
+  const submissions = task.submissions ?? (task.submission ? [task.submission] : []);
 
   return (
     <div className="grid gap-8">
@@ -98,19 +102,23 @@ export function ParentTaskDetail({ taskId, returnHref = "/parent" }: { taskId: s
           <span aria-hidden className="text-body">←</span>
           返回
         </ButtonLink>
-        {canEditOrDelete ? (
+        {canEdit || canDelete ? (
           <span className="ml-1 flex gap-2">
-            <ButtonLink href={`/parent/tasks/${task.id}/edit`} variant="secondary" className="px-3">
-              编辑
-            </ButtonLink>
-            <Button
-              variant="ghost"
-              disabled={isDeleting}
-              onClick={() => setIsDeleteModalOpen(true)}
-              className="px-3 text-muted-soft hover:text-brand-coral"
-            >
-              {isDeleting ? "删除中..." : "删除"}
-            </Button>
+            {canEdit ? (
+              <ButtonLink href={`/parent/tasks/${task.id}/edit`} variant="secondary" className="px-3">
+                编辑
+              </ButtonLink>
+            ) : null}
+            {canDelete ? (
+              <Button
+                variant="ghost"
+                disabled={isDeleting}
+                onClick={() => setIsDeleteModalOpen(true)}
+                className="px-3 text-muted-soft hover:text-brand-coral"
+              >
+                {isDeleting ? "删除中..." : "删除"}
+              </Button>
+            ) : null}
           </span>
         ) : null}
       </div>
@@ -118,18 +126,19 @@ export function ParentTaskDetail({ taskId, returnHref = "/parent" }: { taskId: s
       <div className="rounded-xl bg-surface-soft p-6 md:p-8">
         <div className="flex flex-wrap items-center gap-2">
           <Badge>{task.subject}</Badge>
-          <Badge tone={statusTone[task.status]}>{statusLabel[task.status]}</Badge>
-          {task.rewardPoints ? <Badge tone="success">+{task.rewardPoints} 积分</Badge> : null}
+          <Badge tone={getTaskStatusTone(task)}>{getTaskStatusLabel(task)}</Badge>
+          {task.rewardPoints !== undefined ? <Badge tone="success">+{task.rewardPoints} 积分</Badge> : null}
         </div>
         <h1 className="mt-4 text-display-md text-ink">{task.title}</h1>
         <p className="mt-3 max-w-3xl text-body-md text-body">{task.description}</p>
+        {task.note ? <p className="mt-3 max-w-3xl rounded-lg bg-white/65 p-3 text-body-sm text-muted">备注：{task.note}</p> : null}
       </div>
 
       {error ? <Card className="text-body-sm text-brand-coral">{error}</Card> : null}
 
       <section className="grid gap-4 lg:grid-cols-[1fr_1fr]">
         <Card variant="cream">
-          <CardTitle>孩子提交</CardTitle>
+          <CardTitle>孩子提交记录</CardTitle>
           <dl className="mt-4 grid gap-3 text-body-sm">
             <div className="flex justify-between gap-4">
               <dt className="text-muted">上传图片</dt>
@@ -137,7 +146,7 @@ export function ParentTaskDetail({ taskId, returnHref = "/parent" }: { taskId: s
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-muted">孩子备注</dt>
-              <dd className="font-medium text-ink">{task.submission?.childNote ?? task.childNote ?? "暂无"}</dd>
+              <dd className="font-medium text-ink">{task.submission?.childNote ?? "暂无"}</dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-muted">截止时间</dt>
@@ -148,34 +157,52 @@ export function ParentTaskDetail({ taskId, returnHref = "/parent" }: { taskId: s
               <dd className="font-medium text-ink">{task.rewardPoints ?? 0}</dd>
             </div>
           </dl>
-          <div className="mt-5 grid grid-cols-3 gap-3">
-            {images.length > 0
-              ? images.map((image) => {
-                  const imageUrl = toCurrentOriginUrl(image.imageUrl);
-                  const thumbUrl = toCurrentOriginUrl(image.imageThumbUrl ?? image.imageUrl);
-
-                  return (
-                  <a key={image.id} href={imageUrl} target="_blank" rel="noreferrer">
-                    <img
-                      src={thumbUrl}
-                      alt="提交图片"
+          <div className="mt-5 grid gap-4">
+            {submissions.map((submission, submissionIndex) => (
+              <div key={submission.id} className="rounded-[20px] border border-[#eadfc3] bg-[#fffdf8] p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-body-sm font-bold text-ink">第 {submissionIndex + 1} 次提交</p>
+                  <p className="text-caption text-muted-soft">
+                    {new Date(submission.submittedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}
+                  </p>
+                </div>
+                <p className="mt-2 text-body-sm text-muted">孩子备注：{submission.childNote || "暂无"}</p>
+                {submission.review ? (
+                  <p className="mt-2 rounded-lg bg-surface-soft p-3 text-body-sm text-muted">
+                    家长处理：{submission.review.reviewResult === "pass" ? "确认通过" : "要求补充"}
+                    {submission.review.comment ? `，${submission.review.comment}` : ""}
+                  </p>
+                ) : null}
+                <div className="mt-3 grid grid-cols-3 gap-3">
+                  {submission.images.map((image, imageIndex) => (
+                    <ProtectedImage
+                      key={image.id}
+                      src={image.imageThumbUrl ?? image.imageUrl}
+                      alt={`第 ${submissionIndex + 1} 次提交图片 ${imageIndex + 1}`}
+                      link
                       className="aspect-[4/3] w-full rounded-lg border border-hairline object-cover"
                     />
-                  </a>
-                  );
-                })
-              : (
-                  <div className="flex aspect-[4/3] items-center justify-center rounded-lg border border-dashed border-hairline bg-surface-soft text-caption text-muted-soft">
-                    暂无图片
-                  </div>
-                )}
+                  ))}
+                  {submission.images.length === 0 ? (
+                    <div className="col-span-full rounded-lg border border-dashed border-hairline bg-surface-soft p-4 text-center text-caption text-muted-soft">
+                      本次提交无需图片
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+            {submissions.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-hairline bg-surface-soft p-4 text-center text-caption text-muted-soft">
+                暂无提交
+              </div>
+            ) : null}
           </div>
         </Card>
 
         <Card>
           <CardTitle>家长审核</CardTitle>
           <p className="mt-4 rounded-lg bg-surface-soft p-4 text-body-sm text-muted">
-            {task.aiSummary ?? "AI 检查尚未接入，当前由家长直接确认或要求补充。"}
+            请根据孩子最新一次提交的照片和备注进行确认。
           </p>
           {canReview ? (
             <form className="mt-5 grid gap-4">

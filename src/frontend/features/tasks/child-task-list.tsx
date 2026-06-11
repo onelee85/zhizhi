@@ -7,7 +7,7 @@ import { AppButtonLink } from "@/components/ui/button";
 import { AppCard, AppCardTitle } from "@/components/ui/card";
 import { AppTabs } from "@/components/ui/tabs";
 import { ApiError, getTodayTasks } from "@/features/api/client";
-import { statusLabel, statusTone } from "@/features/tasks/status";
+import { getTaskStatusLabel, getTaskStatusTone } from "@/features/tasks/status";
 import type { StudyTask } from "@/features/tasks/types";
 import { getBusinessDate } from "@/lib/business-date";
 
@@ -154,12 +154,13 @@ export function ChildTaskList() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge>{task.subject}</Badge>
-                    <Badge tone={statusTone[task.status]}>{statusLabel[task.status]}</Badge>
+                    <Badge tone={getTaskStatusTone(task)}>{getTaskStatusLabel(task)}</Badge>
                     {isOverdueIncomplete(task) ? <Badge tone="danger">逾期未完成</Badge> : null}
-                    {task.rewardPoints ? <Badge tone="success">+{task.rewardPoints} 积分</Badge> : null}
+                    {task.rewardPoints !== undefined ? <Badge tone="success">+{task.rewardPoints} 积分</Badge> : null}
                   </div>
                   <h2 className="mt-3 text-title-md text-ink">{task.title}</h2>
                   <p className="mt-1 line-clamp-2 text-body-sm text-muted">{task.description}</p>
+                  {task.note ? <p className="mt-2 line-clamp-1 text-caption text-muted-soft">备注：{task.note}</p> : null}
                 </div>
               </div>
               <div className="flex min-h-10 items-center justify-between gap-3 border-t border-[#eadfc3] pt-3 text-caption">
@@ -183,15 +184,15 @@ export function ChildTaskList() {
 }
 
 function isTodayIncomplete(task: StudyTask) {
-  return !isChildCompleted(task) && (!task.dueDate || task.dueDate === getBusinessDate());
+  return !task.isOverdue && !isChildCompleted(task) && (!task.dueDate || task.dueDate === getBusinessDate());
 }
 
 function isOverdueIncomplete(task: StudyTask) {
-  return Boolean(task.dueDate && task.dueDate < getBusinessDate() && ["pending", "needs_resubmit"].includes(task.status));
+  return Boolean(task.isOverdue);
 }
 
 function isChildCompleted(task: StudyTask) {
-  return ["submitted", "ai_checking", "parent_review", "confirmed"].includes(task.status);
+  return task.status === "parent_review" || task.status === "confirmed";
 }
 
 function isChildResultTask(task: StudyTask) {

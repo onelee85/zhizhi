@@ -9,26 +9,25 @@ import {
   ApiError,
   approveWish,
   confirmWishRedeem,
-  deleteWish,
+  getFamilyContext,
   getPointAccount,
   getWishes,
   rejectWishRedeem,
   rejectWish
 } from "@/features/api/client";
 import { pointLedgerReasonLabel, wishStatusLabel, wishStatusTone } from "@/features/incentives/wish-status";
-import type { ChildPointAccount, PointLedger, Wish } from "@/features/tasks/types";
-
-const demoChild = { id: "child-1", nickname: "孩子" };
+import type { ChildPointAccount, FamilyContext, PointLedger, Wish } from "@/features/tasks/types";
 
 export function ParentWishlist() {
   const [account, setAccount] = useState<ChildPointAccount | null>(null);
+  const [familyContext, setFamilyContext] = useState<FamilyContext | null>(null);
   const [ledger, setLedger] = useState<PointLedger[]>([]);
   const [wishes, setWishes] = useState<Wish[]>([]);
   const [requiredPointsByWish, setRequiredPointsByWish] = useState<Record<string, string>>({});
   const [rejectReasonByWish, setRejectReasonByWish] = useState<Record<string, string>>({});
   const [confirmTarget, setConfirmTarget] = useState<Wish | null>(null);
   const [redeemRejectTarget, setRedeemRejectTarget] = useState<Wish | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<Wish | null>(null);
+  const [redeemRejectReason, setRedeemRejectReason] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -42,13 +41,15 @@ export function ParentWishlist() {
       setError("");
 
       try {
+        const context = await getFamilyContext();
         const [pointResult, wishResult] = await Promise.all([
-          getPointAccount({ childUserId: demoChild.id }),
-          getWishes({ childUserId: demoChild.id })
+          getPointAccount({ childUserId: context.child.id }),
+          getWishes({ childUserId: context.child.id })
         ]);
         if (!active) {
           return;
         }
+        setFamilyContext(context);
         setAccount(pointResult.account);
         setLedger(pointResult.ledger);
         setWishes(wishResult.wishes);
@@ -93,13 +94,18 @@ export function ParentWishlist() {
   }
 
   async function handleReject(wish: Wish) {
+    const rejectReason = rejectReasonByWish[wish.id]?.trim() ?? "";
+    if (!rejectReason) {
+      setError("驳回心愿时必须填写原因");
+      return;
+    }
     setError("");
     setMessage("");
     setActionWishId(wish.id);
 
     try {
       const result = await rejectWish(wish.id, {
-        rejectReason: rejectReasonByWish[wish.id]?.trim() || undefined
+        rejectReason
       });
       replaceWish(result.wish);
       setMessage("已驳回心愿。");
@@ -138,13 +144,20 @@ export function ParentWishlist() {
     if (!redeemRejectTarget) {
       return;
     }
+    const rejectReason = redeemRejectReason.trim();
+    if (!rejectReason) {
+      setError("拒绝兑换时必须填写原因");
+      return;
+    }
 
     setError("");
     setMessage("");
     setActionWishId(redeemRejectTarget.id);
 
     try {
-      const result = await rejectWishRedeem(redeemRejectTarget.id);
+      const result = await rejectWishRedeem(redeemRejectTarget.id, {
+        rejectReason
+      });
       replaceWish(result.wish);
       if (result.ledger) {
         setLedger((prev) => [result.ledger!, ...prev]);
@@ -159,6 +172,7 @@ export function ParentWishlist() {
         );
       }
       setRedeemRejectTarget(null);
+      setRedeemRejectReason("");
       setMessage(
         result.ledger
           ? "已拒绝兑换，积分已返还。"
@@ -166,27 +180,6 @@ export function ParentWishlist() {
       );
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "拒绝兑换失败");
-    } finally {
-      setActionWishId(null);
-    }
-  }
-
-  async function handleConfirmDelete() {
-    if (!deleteTarget) {
-      return;
-    }
-
-    setError("");
-    setMessage("");
-    setActionWishId(deleteTarget.id);
-
-    try {
-      await deleteWish(deleteTarget.id);
-      setWishes((prev) => prev.filter((wish) => wish.id !== deleteTarget.id));
-      setDeleteTarget(null);
-      setMessage("已删除已兑换的心愿。");
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "删除心愿失败");
     } finally {
       setActionWishId(null);
     }
@@ -222,7 +215,7 @@ export function ParentWishlist() {
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <AppCard variant="ochre" className="text-[#725d42]">
           <p className="text-caption text-[#725d42]/70">孩子</p>
-          <p className="mt-2 text-title-md text-[#725d42]">{demoChild.nickname}</p>
+          <p className="mt-2 text-title-md text-[#725d42]">{familyContext?.child.nickname ?? "孩子"}</p>
         </AppCard>
         <AppCard variant="lavender" className="text-white">
           <p className="text-caption text-white/75">待设置积分</p>
@@ -254,6 +247,12 @@ export function ParentWishlist() {
                   <h2 className="mt-3 text-title-md text-ink">{wish.title}</h2>
                   {wish.description ? <p className="mt-1 text-body-sm text-muted">{wish.description}</p> : null}
                   {wish.rejectReason ? <p className="mt-2 text-caption text-brand-coral">驳回原因：{wish.rejectReason}</p> : null}
+                  {wish.latestRedeemRequest?.status === "rejected" ? (
+                    <p className="mt-2 text-caption text-brand-coral">
+                      最近兑换未兑现：已退款 {wish.latestRedeemRequest.requiredPoints} 积分。
+                      {wish.latestRedeemRequest.rejectReason ? ` 原因：${wish.latestRedeemRequest.rejectReason}` : ""}
+                    </p>
+                  ) : null}
                 </div>
 
                 {wish.status === "pending_review" ? (
@@ -286,7 +285,7 @@ export function ParentWishlist() {
                     <AppButton
                       type="button"
                       variant="secondary"
-                      disabled={actionWishId === wish.id}
+                      disabled={actionWishId === wish.id || !(rejectReasonByWish[wish.id]?.trim())}
                       onClick={() => void handleReject(wish)}
                     >
                       驳回
@@ -299,24 +298,19 @@ export function ParentWishlist() {
                     <AppButton type="button" onClick={() => setConfirmTarget(wish)}>
                       确认兑换
                     </AppButton>
-                    <AppButton type="button" variant="secondary" onClick={() => setRedeemRejectTarget(wish)}>
+                    <AppButton
+                      type="button"
+                      variant="secondary"
+                      onClick={() => {
+                        setRedeemRejectReason("");
+                        setRedeemRejectTarget(wish);
+                      }}
+                    >
                       拒绝并返还积分
                     </AppButton>
                   </div>
                 ) : null}
 
-                {wish.status === "redeemed" ? (
-                  <div className="flex justify-start">
-                    <AppButton
-                      type="button"
-                      variant="secondary"
-                      disabled={actionWishId === wish.id}
-                      onClick={() => setDeleteTarget(wish)}
-                    >
-                      {actionWishId === wish.id ? "处理中..." : "删除心愿"}
-                    </AppButton>
-                  </div>
-                ) : null}
               </div>
             ))}
             {!isLoading && wishes.length === 0 ? (
@@ -330,7 +324,7 @@ export function ParentWishlist() {
         <AppCard className="overflow-hidden">
           <AppCardTitle>积分流水</AppCardTitle>
           <div className="mt-4 grid gap-3">
-            {ledger.slice(0, 8).map((item) => (
+            {ledger.map((item) => (
               <div key={item.id} className="rounded-[20px] bg-[#fffdf8] px-4 py-3 text-body-sm">
                 <div className="flex items-center justify-between gap-3">
                   <span className="font-bold text-ink">{pointLedgerReasonLabel[item.reason]}</span>
@@ -362,28 +356,28 @@ export function ParentWishlist() {
         open={Boolean(redeemRejectTarget)}
         title="拒绝兑换"
         description="拒绝后会返还本次扣除的积分，心愿恢复为可兑换。"
-        detail={
-          redeemRejectTarget
-            ? `${redeemRejectTarget.title}：返还 ${redeemRejectTarget.requiredPoints ?? 0} 积分`
-            : undefined
-        }
+        detail={redeemRejectTarget ? (
+          <label className="grid gap-2 text-left">
+            <span>{redeemRejectTarget.title}：返还 {redeemRejectTarget.requiredPoints ?? 0} 积分</span>
+            <span>无法兑现的客观原因</span>
+            <textarea
+              value={redeemRejectReason}
+              onChange={(event) => setRedeemRejectReason(event.target.value)}
+              rows={3}
+              maxLength={500}
+              placeholder="必须填写，孩子会看到这个原因"
+            />
+          </label>
+        ) : undefined}
         confirmText="拒绝并返还"
         tone="danger"
+        disabled={!redeemRejectReason.trim()}
         loading={Boolean(redeemRejectTarget && actionWishId === redeemRejectTarget.id)}
-        onClose={() => setRedeemRejectTarget(null)}
+        onClose={() => {
+          setRedeemRejectTarget(null);
+          setRedeemRejectReason("");
+        }}
         onConfirm={() => void handleRejectRedeem()}
-      />
-
-      <AppConfirmModal
-        open={Boolean(deleteTarget)}
-        title="删除已兑换的心愿"
-        description="删除后将从心愿清单移除该记录，且无法恢复。"
-        detail={deleteTarget ? deleteTarget.title : undefined}
-        confirmText="删除心愿"
-        tone="danger"
-        loading={Boolean(deleteTarget && actionWishId === deleteTarget.id)}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={() => void handleConfirmDelete()}
       />
     </div>
   );

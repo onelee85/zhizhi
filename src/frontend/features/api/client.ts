@@ -1,5 +1,7 @@
 import type {
   ChildPointAccount,
+  FamilyContext,
+  MvpMetrics,
   ParentDashboard,
   PointLedger,
   StudyTask,
@@ -202,6 +204,10 @@ export async function getMe() {
   return request<{ user: User }>("/auth/me");
 }
 
+export async function getFamilyContext() {
+  return request<FamilyContext>("/family/context");
+}
+
 export async function getParentDashboard() {
   return request<ParentDashboard>("/parent/dashboard");
 }
@@ -247,15 +253,15 @@ export async function getTask(taskId: string) {
 }
 
 export type CreateTaskInput = {
-  childUserId: string;
+  childUserId?: string;
   subject: Subject;
   taskType: TaskType;
   title: string;
   description: string;
+  note?: string;
   dueDate: string;
   dueTime?: string;
   needPhoto: boolean;
-  needAiCheck: boolean;
   rewardPoints: number;
 };
 
@@ -291,10 +297,10 @@ export type UpdateTaskInput = {
   taskType?: TaskType;
   title?: string;
   description?: string;
+  note?: string;
   dueDate?: string;
   dueTime?: string;
   needPhoto?: boolean;
-  needAiCheck?: boolean;
   rewardPoints?: number;
 };
 
@@ -375,7 +381,7 @@ export async function approveWish(wishId: string, input: { requiredPoints: numbe
   });
 }
 
-export async function rejectWish(wishId: string, input: { rejectReason?: string }) {
+export async function rejectWish(wishId: string, input: { rejectReason: string }) {
   return request<{ wish: Wish }>(`/wishes/${encodeURIComponent(wishId)}/reject`, {
     method: "PATCH",
     body: JSON.stringify(input)
@@ -394,11 +400,35 @@ export async function confirmWishRedeem(wishId: string) {
   });
 }
 
-export async function rejectWishRedeem(wishId: string) {
+export async function rejectWishRedeem(wishId: string, input: { rejectReason: string }) {
   return request<{ wish: Wish; ledger: PointLedger | null }>(
     `/wishes/${encodeURIComponent(wishId)}/redeem-rejections`,
     {
-      method: "POST"
+      method: "POST",
+      body: JSON.stringify(input)
     }
   );
+}
+
+export async function getMvpMetrics(days = 14) {
+  return request<MvpMetrics>(`/metrics/mvp?days=${days}`);
+}
+
+export async function getProtectedImageBlob(imageUrl: string) {
+  const headers = new Headers();
+  const token = getStoredToken();
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const response = await fetchWithRetry(imageUrl, {
+    method: "GET",
+    headers,
+    cache: "no-store"
+  });
+  if (!response.ok) {
+    throw new ApiError(response.status, "图片加载失败");
+  }
+
+  return response.blob();
 }

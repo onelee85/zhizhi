@@ -8,13 +8,13 @@ import { AppCard, AppCardTitle } from "@/components/ui/card";
 import { AppConfirmModal } from "@/components/ui/modal";
 import { AppSelect } from "@/components/ui/select";
 import { ApiError, deleteTask, getParentDashboard } from "@/features/api/client";
-import { getImageCount, statusLabel, statusTone } from "@/features/tasks/status";
+import { ProtectedImage } from "@/features/tasks/protected-image";
+import { getImageCount, getTaskStatusLabel, getTaskStatusTone, statusLabel } from "@/features/tasks/status";
 import type { ParentDashboard, StudyTask, TaskStatus } from "@/features/tasks/types";
 
 const statusFilterOptions: Array<{ value: "all" | TaskStatus; label: string }> = [
   { value: "all", label: "全部状态" },
   { value: "pending", label: statusLabel.pending },
-  { value: "submitted", label: statusLabel.submitted },
   { value: "parent_review", label: statusLabel.parent_review },
   { value: "confirmed", label: statusLabel.confirmed },
   { value: "needs_resubmit", label: statusLabel.needs_resubmit }
@@ -135,6 +135,31 @@ export function ParentDashboardView() {
         </AppCard>
       </section>
 
+      <section className="grid gap-3 md:grid-cols-[220px_1fr]">
+        <AppCard variant="mint" className="text-white">
+          <p className="text-caption text-white/75">{dashboard?.child.nickname ?? "孩子"}当前积分</p>
+          <p className="mt-2 text-display-sm tracking-normal text-white">
+            {isLoading ? "-" : dashboard?.pointAccount.balance ?? 0}
+          </p>
+          <AppButtonLink href="/parent/wishes" variant="secondary" className="mt-3 w-fit">
+            查看积分与心愿
+          </AppButtonLink>
+        </AppCard>
+        <AppCard>
+          <AppCardTitle>近 14 天使用验证</AppCardTitle>
+          <div className="mt-4 grid grid-cols-3 gap-3">
+            <Metric label="打卡完成率" value={dashboard?.metrics.rates.checkInCompletion} />
+            <Metric label="24 小时确认率" value={dashboard?.metrics.rates.confirmedWithin24h} />
+            <Metric label="补充完成率" value={dashboard?.metrics.rates.resubmitCompletion} />
+          </div>
+          <p className="mt-4 text-caption text-muted">
+            创建 {dashboard?.metrics.counts.createdTasks ?? 0} 项（{dashboard?.metrics.counts.taskCreationDays ?? 0} 天）；
+            提交 {dashboard?.metrics.counts.submittedTasks ?? 0} 项，确认 {dashboard?.metrics.counts.confirmedTasks ?? 0} 项；
+            心愿 {dashboard?.metrics.counts.wishesCreated ?? 0} 个，兑换申请 {dashboard?.metrics.counts.redeemRequested ?? 0} 次。
+          </p>
+        </AppCard>
+      </section>
+
       <AppCard className="overflow-visible p-0 md:p-0">
         <div className="mb-4 grid gap-4 px-5 pt-5 md:grid-cols-[1fr_auto] md:items-start md:px-6 md:pt-6">
           <div>
@@ -193,18 +218,34 @@ export function ParentDashboardView() {
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge>{task.subject}</Badge>
-                  <Badge tone={statusTone[task.status]}>{statusLabel[task.status]}</Badge>
+                  <Badge tone={getTaskStatusTone(task)}>{getTaskStatusLabel(task)}</Badge>
                   {getImageCount(task) > 0 ? <Badge tone="lavender">{getImageCount(task)} 张图</Badge> : null}
-                  {task.rewardPoints ? <Badge tone="success">+{task.rewardPoints} 积分</Badge> : null}
+                  {task.rewardPoints !== undefined ? <Badge tone="success">+{task.rewardPoints} 积分</Badge> : null}
                 </div>
                 <h2 className="mt-3 text-title-md text-ink">{task.title}</h2>
                 <p className="mt-1 max-w-3xl text-body-sm text-muted">{task.description}</p>
+                {task.note ? <p className="mt-2 text-caption text-muted-soft">备注：{task.note}</p> : null}
+                {task.status === "parent_review" && task.submission ? (
+                  <div className="mt-3 flex items-center gap-3 rounded-[18px] bg-[#fff3c9] p-3">
+                    {task.submission.images.slice(0, 3).map((image, index) => (
+                      <ProtectedImage
+                        key={image.id}
+                        src={image.imageThumbUrl ?? image.imageUrl}
+                        alt={`提交图片 ${index + 1}`}
+                        className="h-14 w-16 rounded-[12px] object-cover"
+                      />
+                    ))}
+                    <p className="min-w-0 text-body-sm text-[#725d42]">
+                      孩子备注：{task.submission.childNote || "暂无"}
+                    </p>
+                  </div>
+                ) : null}
               </div>
               <div className="flex items-center gap-3 md:justify-end">
                 <span className="text-body-sm text-muted-soft">
                   截止 {task.dueTime ? task.dueTime : task.dueDate ?? "今日"}
                 </span>
-                {task.status === "pending" || task.status === "needs_resubmit" ? (
+                {task.status === "pending" && (task.submissions?.length ?? 0) === 0 ? (
                   <AppButton
                     variant="ghost"
                     className="text-caption text-muted-soft hover:text-brand-coral"
@@ -239,6 +280,15 @@ export function ParentDashboardView() {
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => void handleDelete()}
       />
+    </div>
+  );
+}
+
+function Metric({ label, value }: { label: string; value?: number }) {
+  return (
+    <div className="rounded-[18px] bg-surface-soft p-3 text-center">
+      <p className="text-caption text-muted">{label}</p>
+      <p className="mt-1 text-title-md text-ink">{value === undefined ? "-" : `${value}%`}</p>
     </div>
   );
 }

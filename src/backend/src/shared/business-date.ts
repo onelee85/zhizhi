@@ -12,6 +12,18 @@ export function getBusinessDate(now: Date = new Date(), timeZone = APP_TIMEZONE)
   return `${values.year}-${values.month}-${values.day}`;
 }
 
+export function getBusinessTime(now: Date = new Date(), timeZone = APP_TIMEZONE) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(now);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+
+  return `${values.hour}:${values.minute}`;
+}
+
 export function getMonthRange(month: string) {
   const [year, monthNumber] = month.split("-").map((part) => Number.parseInt(part, 10));
   const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();

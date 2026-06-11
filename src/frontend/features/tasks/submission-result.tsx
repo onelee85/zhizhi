@@ -5,8 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { AppButtonLink } from "@/components/ui/button";
 import { AppCard, AppCardTitle } from "@/components/ui/card";
 import { ApiError, getTask } from "@/features/api/client";
-import { toCurrentOriginUrl } from "@/features/tasks/media-url";
-import { getImageCount, statusLabel, statusTone } from "@/features/tasks/status";
+import { ProtectedImage } from "@/features/tasks/protected-image";
+import { getImageCount, getTaskStatusLabel, getTaskStatusTone } from "@/features/tasks/status";
 import type { StudyTask } from "@/features/tasks/types";
 import { formatBusinessDateTime } from "@/lib/business-date";
 
@@ -57,7 +57,7 @@ export function SubmissionResult({
     return <AppCard className="mx-auto max-w-lg text-body-sm text-brand-coral">{error || "任务不存在"}</AppCard>;
   }
 
-  const images = task.submission?.images ?? [];
+  const submissions = task.submissions ?? (task.submission ? [task.submission] : []);
   const submittedAt = task.submission?.submittedAt
     ? formatBusinessDateTime(task.submission.submittedAt)
     : "暂无";
@@ -79,11 +79,12 @@ export function SubmissionResult({
         <div className="flex flex-wrap items-center gap-2">
           <Badge>{task.subject}</Badge>
           <Badge>{task.taskType}</Badge>
-          <Badge tone={statusTone[task.status]}>{statusLabel[task.status]}</Badge>
+          <Badge tone={getTaskStatusTone(task)}>{getTaskStatusLabel(task)}</Badge>
         </div>
         <p className="mt-4 text-caption font-bold uppercase text-[#725d42]/70">Mission report</p>
         <h1 className="mt-2 text-display-sm tracking-normal text-ink">{task.title}</h1>
         <p className="mt-3 text-body-sm text-[#725d42]/80">{task.description}</p>
+        {task.note ? <p className="mt-3 rounded-[18px] bg-white/45 p-3 text-body-sm text-[#725d42]">备注：{task.note}</p> : null}
       </div>
 
       <AppCard className="bg-canvas/95">
@@ -91,7 +92,7 @@ export function SubmissionResult({
         <dl className="mt-4 grid gap-3 text-body-sm">
           <div className="flex justify-between gap-4">
             <dt className="text-muted">当前状态</dt>
-            <dd className="font-medium text-ink">{statusLabel[task.status]}</dd>
+            <dd className="font-medium text-ink">{getTaskStatusLabel(task)}</dd>
           </div>
           <div className="flex justify-between gap-4">
             <dt className="text-muted">任务类型</dt>
@@ -111,11 +112,7 @@ export function SubmissionResult({
           </div>
           <div className="flex justify-between gap-4">
             <dt className="text-muted">孩子备注</dt>
-            <dd className="max-w-md text-right font-medium text-ink">{task.submission?.childNote ?? task.childNote ?? "暂无"}</dd>
-          </div>
-          <div className="flex justify-between gap-4">
-            <dt className="text-muted">AI 检查</dt>
-            <dd className="font-medium text-muted-soft">暂未开放</dd>
+            <dd className="max-w-md text-right font-medium text-ink">{task.submission?.childNote ?? "暂无"}</dd>
           </div>
           <div className="flex justify-between gap-4">
             <dt className="text-muted">家长确认</dt>
@@ -127,34 +124,44 @@ export function SubmissionResult({
       </AppCard>
 
       <AppCard variant="cream">
-        <AppCardTitle>提交图片</AppCardTitle>
-        <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3">
-          {images.length > 0
-            ? images.map((image, index) => {
-                const imageUrl = toCurrentOriginUrl(image.imageUrl);
-                const thumbUrl = toCurrentOriginUrl(image.imageThumbUrl ?? image.imageUrl);
-
-                return (
-                  <a
+        <AppCardTitle>打卡记录</AppCardTitle>
+        <div className="mt-5 grid gap-4">
+          {submissions.map((submission, submissionIndex) => (
+            <div key={submission.id} className="rounded-[22px] border-2 border-[#eadfc3] bg-canvas p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-body-sm font-bold text-ink">第 {submissionIndex + 1} 次提交</p>
+                <p className="text-caption text-muted-soft">{formatBusinessDateTime(submission.submittedAt)}</p>
+              </div>
+              <p className="mt-2 text-body-sm text-muted">备注：{submission.childNote || "暂无"}</p>
+              {submission.review ? (
+                <p className="mt-2 rounded-[18px] bg-[#f7f0d8] p-3 text-body-sm text-muted">
+                  家长反馈：{submission.review.reviewResult === "pass" ? "确认通过" : "需要补充"}
+                  {submission.review.comment ? `，${submission.review.comment}` : ""}
+                </p>
+              ) : null}
+              <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3">
+                {submission.images.map((image, imageIndex) => (
+                  <ProtectedImage
                     key={image.id}
-                    href={imageUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="group block"
-                  >
-                    <img
-                      src={thumbUrl}
-                      alt={`提交图片 ${index + 1}`}
-                      className="aspect-[4/3] w-full rounded-[18px] border-2 border-[#eadfc3] object-cover transition group-hover:opacity-90"
-                    />
-                  </a>
-                );
-              })
-            : (
-                <div className="col-span-full flex aspect-[4/3] items-center justify-center rounded-[22px] border-2 border-dashed border-[#eadfc3] bg-canvas text-caption text-muted-soft">
-                  暂无图片
-                </div>
-              )}
+                    src={image.imageThumbUrl ?? image.imageUrl}
+                    alt={`第 ${submissionIndex + 1} 次提交图片 ${imageIndex + 1}`}
+                    link
+                    className="aspect-[4/3] w-full rounded-[18px] border-2 border-[#eadfc3] object-cover"
+                  />
+                ))}
+                {submission.images.length === 0 ? (
+                  <div className="col-span-full rounded-[18px] border-2 border-dashed border-[#eadfc3] p-4 text-center text-caption text-muted-soft">
+                    本次提交无需图片
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          ))}
+          {submissions.length === 0 ? (
+            <div className="rounded-[22px] border-2 border-dashed border-[#eadfc3] bg-canvas p-6 text-center text-caption text-muted-soft">
+              暂无提交记录
+            </div>
+          ) : null}
         </div>
       </AppCard>
 

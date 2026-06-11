@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
+import type { PoolConnection } from "mysql2/promise";
 import type { DbPool } from "../../server/db.js";
 import type { ParentReview, StudyTask, SubmissionImage, TaskSubmission, UserRole } from "../../domain/types.js";
+
+type DbExecutor = Pick<DbPool, "execute"> | Pick<PoolConnection, "execute">;
 
 type TaskRow = RowDataPacket & {
   id: string;
@@ -12,10 +15,10 @@ type TaskRow = RowDataPacket & {
   task_type: StudyTask["taskType"];
   title: string;
   description: string;
+  note: string | null;
   due_date: string;
   due_time: string | null;
   need_photo: 0 | 1;
-  need_ai_check: 0 | 1;
   reward_points: number;
   status: StudyTask["status"];
   created_at: string;
@@ -53,13 +56,37 @@ type TaskArchiveRow = RowDataPacket & {
 };
 
 type ReviewRow = RowDataPacket & {
+  id?: string;
+  task_id?: string;
+  submission_id?: string;
+  parent_user_id?: string;
   review_result: ParentReview["reviewResult"];
   comment: string | null;
   reviewed_at: string;
 };
 
+type FamilyChildDetailRow = RowDataPacket & {
+  id: string;
+  nickname: string;
+};
+
 export class TaskRepository {
   constructor(private readonly db: DbPool) {}
+
+  async withTransaction<T>(callback: (connection: PoolConnection) => Promise<T>) {
+    const connection = await this.db.getConnection();
+    try {
+      await connection.beginTransaction();
+      const result = await callback(connection);
+      await connection.commit();
+      return result;
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
 
   async findTaskById(taskId: string) {
     const [rows] = await this.db.execute<TaskRow[]>(
@@ -68,6 +95,34 @@ export class TaskRepository {
        where id = :taskId and deleted_at is null
        limit 1`,
       { taskId }
+    );
+
+    return rows[0] ? mapTask(rows[0]) : undefined;
+  }
+
+  async findTaskByIdForUpdate(connection: PoolConnection, taskId: string) {
+    const [rows] = await connection.execute<TaskRow[]>(
+      `select *
+       from study_task
+       where id = :taskId and deleted_at is null
+       limit 1
+       for update`,
+      { taskId }
+    );
+
+    return rows[0] ? mapTask(rows[0]) : undefined;
+  }
+
+  async findTaskByImageUrl(imageUrl: string) {
+    const [rows] = await this.db.execute<TaskRow[]>(
+      `select st.*
+       from submission_image si
+       join task_submission ts on ts.id = si.submission_id
+       join study_task st on st.id = ts.task_id
+       where si.image_url = :imageUrl
+         and st.deleted_at is null
+       limit 1`,
+      { imageUrl }
     );
 
     return rows[0] ? mapTask(rows[0]) : undefined;
@@ -88,6 +143,21 @@ export class TaskRepository {
     return rows.length > 0;
   }
 
+  async findOnlyFamilyChild(familyId: string) {
+    const [rows] = await this.db.execute<FamilyChildDetailRow[]>(
+      `select id, nickname
+       from \`user\`
+       where family_id = :familyId
+         and role = 'child'
+         and deleted_at is null
+       order by created_at
+       limit 2`,
+      { familyId }
+    );
+
+    return rows.length === 1 ? rows[0] : undefined;
+  }
+
   async listTodayTasks(
     familyId: string,
     childUserId: string,
@@ -106,9 +176,9 @@ export class TaskRepository {
              and due_date < :dueDate
              and status in ('pending', 'needs_resubmit')
            )
-           or (
+          or (
              :includeCompleted = true
-             and status in ('submitted', 'ai_checking', 'parent_review', 'confirmed')
+             and status in ('parent_review', 'confirmed')
            )
          )
          and deleted_at is null
@@ -228,11 +298,11 @@ export class TaskRepository {
     await this.db.execute<ResultSetHeader>(
       `insert into study_task (
          id, family_id, child_user_id, creator_user_id, subject, task_type,
-         title, description, due_date, due_time, need_photo, need_ai_check,
+         title, description, note, due_date, due_time, need_photo,
          reward_points, status, created_at, updated_at
        ) values (
          :id, :familyId, :childUserId, :creatorUserId, :subject, :taskType,
-         :title, :description, :dueDate, :dueTime, :needPhoto, :needAiCheck,
+         :title, :description, :note, :dueDate, :dueTime, :needPhoto,
          :rewardPoints, :status, :createdAt, :updatedAt
        )`,
       {
@@ -244,10 +314,10 @@ export class TaskRepository {
         taskType: task.taskType,
         title: task.title,
         description: task.description,
+        note: task.note ?? null,
         dueDate: task.dueDate,
         dueTime: task.dueTime ?? null,
         needPhoto: task.needPhoto,
-        needAiCheck: task.needAiCheck,
         rewardPoints: task.rewardPoints,
         status: task.status,
         createdAt: now.mysql,
@@ -267,10 +337,10 @@ export class TaskRepository {
         | "taskType"
         | "title"
         | "description"
+        | "note"
         | "dueDate"
         | "dueTime"
         | "needPhoto"
-        | "needAiCheck"
         | "rewardPoints"
       >
     >
@@ -294,10 +364,10 @@ export class TaskRepository {
            task_type = :taskType,
            title = :title,
            description = :description,
+           note = :note,
            due_date = :dueDate,
            due_time = :dueTime,
            need_photo = :needPhoto,
-           need_ai_check = :needAiCheck,
            reward_points = :rewardPoints,
            updated_at = :updatedAt
        where id = :taskId and deleted_at is null`,
@@ -307,10 +377,10 @@ export class TaskRepository {
         taskType: nextTask.taskType,
         title: nextTask.title,
         description: nextTask.description,
+        note: nextTask.note ?? null,
         dueDate: nextTask.dueDate,
         dueTime: nextTask.dueTime ?? null,
         needPhoto: nextTask.needPhoto,
-        needAiCheck: nextTask.needAiCheck,
         rewardPoints: nextTask.rewardPoints,
         updatedAt
       }
@@ -354,7 +424,31 @@ export class TaskRepository {
     return this.findTaskById(taskId);
   }
 
+  async setTaskStatusInTransaction(connection: PoolConnection, taskId: string, status: StudyTask["status"]) {
+    const updatedAt = currentTimestamp();
+    await connection.execute<ResultSetHeader>(
+      `update study_task
+       set status = :status, updated_at = :updatedAt
+       where id = :taskId and deleted_at is null`,
+      { taskId, status, updatedAt: updatedAt.mysql }
+    );
+  }
+
   async createSubmission(input: Omit<TaskSubmission, "id" | "submittedAt" | "createdAt" | "updatedAt">) {
+    return this.createSubmissionWith(this.db, input);
+  }
+
+  async createSubmissionInTransaction(
+    connection: PoolConnection,
+    input: Omit<TaskSubmission, "id" | "submittedAt" | "createdAt" | "updatedAt">
+  ) {
+    return this.createSubmissionWith(connection, input);
+  }
+
+  private async createSubmissionWith(
+    db: DbExecutor,
+    input: Omit<TaskSubmission, "id" | "submittedAt" | "createdAt" | "updatedAt">
+  ) {
     const now = currentTimestamp();
     const submission: TaskSubmission = {
       id: randomUUID(),
@@ -364,7 +458,7 @@ export class TaskRepository {
       ...input
     };
 
-    await this.db.execute<ResultSetHeader>(
+    await db.execute<ResultSetHeader>(
       `insert into task_submission (
          id, task_id, child_user_id, status, child_note,
          submitted_at, created_at, updated_at
@@ -412,7 +506,29 @@ export class TaskRepository {
     return rows[0] ? mapSubmission(rows[0]) : undefined;
   }
 
+  async getLatestSubmissionForUpdate(connection: PoolConnection, taskId: string) {
+    const [rows] = await connection.execute<SubmissionRow[]>(
+      `select *
+       from task_submission
+       where task_id = :taskId
+       order by submitted_at desc, created_at desc
+       limit 1
+       for update`,
+      { taskId }
+    );
+
+    return rows[0] ? mapSubmission(rows[0]) : undefined;
+  }
+
   async createImages(submissionId: string, imageUrls: string[]) {
+    return this.createImagesWith(this.db, submissionId, imageUrls);
+  }
+
+  async createImagesInTransaction(connection: PoolConnection, submissionId: string, imageUrls: string[]) {
+    return this.createImagesWith(connection, submissionId, imageUrls);
+  }
+
+  private async createImagesWith(db: DbExecutor, submissionId: string, imageUrls: string[]) {
     const now = currentTimestamp();
     const images: SubmissionImage[] = imageUrls.map((imageUrl, index) => ({
       id: randomUUID(),
@@ -430,7 +546,7 @@ export class TaskRepository {
 
     await Promise.all(
       images.map((image) =>
-        this.db.execute<ResultSetHeader>(
+        db.execute<ResultSetHeader>(
           `insert into submission_image (
              id, submission_id, image_url, image_thumb_url,
              sort_order, upload_status, created_at
@@ -476,7 +592,32 @@ export class TaskRepository {
     );
   }
 
+  async updateSubmissionStatusInTransaction(
+    connection: PoolConnection,
+    submissionId: string,
+    status: TaskSubmission["status"]
+  ) {
+    const updatedAt = currentTimestamp();
+    await connection.execute<ResultSetHeader>(
+      `update task_submission
+       set status = :status, updated_at = :updatedAt
+       where id = :submissionId`,
+      { submissionId, status, updatedAt: updatedAt.mysql }
+    );
+  }
+
   async createReview(input: Omit<ParentReview, "id" | "reviewedAt">) {
+    return this.createReviewWith(this.db, input);
+  }
+
+  async createReviewInTransaction(
+    connection: PoolConnection,
+    input: Omit<ParentReview, "id" | "reviewedAt">
+  ) {
+    return this.createReviewWith(connection, input);
+  }
+
+  private async createReviewWith(db: DbExecutor, input: Omit<ParentReview, "id" | "reviewedAt">) {
     const now = currentTimestamp();
     const review: ParentReview = {
       id: randomUUID(),
@@ -484,7 +625,7 @@ export class TaskRepository {
       ...input
     };
 
-    await this.db.execute<ResultSetHeader>(
+    await db.execute<ResultSetHeader>(
       `insert into parent_review (
          id, task_id, submission_id, parent_user_id,
          review_result, comment, reviewed_at
@@ -505,6 +646,37 @@ export class TaskRepository {
 
     return review;
   }
+
+  async getReviewBySubmission(submissionId: string) {
+    return this.getReviewBySubmissionWith(this.db, submissionId);
+  }
+
+  async getReviewBySubmissionInTransaction(connection: PoolConnection, submissionId: string) {
+    return this.getReviewBySubmissionWith(connection, submissionId);
+  }
+
+  private async getReviewBySubmissionWith(db: DbExecutor, submissionId: string) {
+    const [rows] = await db.execute<ReviewRow[]>(
+      `select id, task_id, submission_id, parent_user_id, review_result, comment, reviewed_at
+       from parent_review
+       where submission_id = :submissionId
+       limit 1`,
+      { submissionId }
+    );
+    const row = rows[0];
+
+    return row && row.id && row.task_id && row.submission_id && row.parent_user_id
+      ? {
+          id: row.id,
+          taskId: row.task_id,
+          submissionId: row.submission_id,
+          parentUserId: row.parent_user_id,
+          reviewResult: row.review_result,
+          comment: row.comment ?? undefined,
+          reviewedAt: toIsoDateTime(row.reviewed_at)
+        }
+      : undefined;
+  }
 }
 
 function mapTask(row: TaskRow): StudyTask {
@@ -517,10 +689,10 @@ function mapTask(row: TaskRow): StudyTask {
     taskType: row.task_type,
     title: row.title,
     description: row.description,
+    note: row.note ?? undefined,
     dueDate: row.due_date,
     dueTime: row.due_time ?? undefined,
     needPhoto: Boolean(row.need_photo),
-    needAiCheck: Boolean(row.need_ai_check),
     rewardPoints: row.reward_points,
     status: row.status,
     createdAt: toIsoDateTime(row.created_at),

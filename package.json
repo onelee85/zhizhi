@@ -3,7 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "test:e2e": "playwright test"
+    "typecheck": "pnpm --dir src/backend typecheck && pnpm --dir src/frontend typecheck",
+    "build": "pnpm --dir src/backend build && pnpm --dir src/frontend build",
+    "test:unit": "pnpm --dir src/backend test",
+    "test:integration": "pnpm build && playwright test --project=api-integration",
+    "test:e2e": "pnpm build && playwright test --project=chromium",
+    "test": "pnpm typecheck && pnpm build && pnpm test:unit && playwright test"
   },
   "devDependencies": {
     "@playwright/test": "1.58.0"

@@ -9,7 +9,7 @@
 - 项目目录：`/Users/lijiao/Documents/AI/zhizhi/src/frontend`
 - 包管理器：pnpm
 - Node.js：建议使用 Node.js v22
-- 当前边界：不包含 Qiniu 真实图片上传、AI 检查、错题、周报和 CI
+- 当前边界：本地受保护图片、单孩子上下文；不包含 AI、对象存储、错题或周报
 
 ## 技术栈
 
@@ -105,7 +105,7 @@ src/frontend
 http://localhost:4000
 ```
 
-当前后端尚无家庭孩子列表接口，创建任务页阶段 1 使用 Demo seed 中的 `child-1` 作为默认孩子。
+前端通过 `GET /family/context` 获取当前家庭唯一孩子，创建任务和家长愿望页不硬编码孩子 ID。
 
 如需覆盖：
 
@@ -200,7 +200,7 @@ pnpm build
 pnpm start
 ```
 
-当前前端只需要后端 Base URL。数据库、Qiniu Secret、Alibaba Bailian Key 等敏感配置必须只放在后端环境变量中，不能暴露给客户端。
+当前前端只需要后端 Base URL。数据库账号和其他敏感配置必须只放在后端环境变量中，不能暴露给客户端。
 
 ## 验证方式
 
@@ -221,7 +221,5 @@ pnpm build
 
 ## 当前未实现
 
-- Qiniu 图片上传。
-- AI 检查。
-- 错题和周报。
+- AI、对象存储、错题和周报。
 - 测试用例和 CI。

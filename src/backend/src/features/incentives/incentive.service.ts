@@ -1,4 +1,5 @@
 import { AppError, assertFound } from "../../shared/errors.js";
+import type { PoolConnection } from "mysql2/promise";
 import type { StudyTask, User, Wish } from "../../domain/types.js";
 import type { z } from "zod";
 import type {
@@ -37,13 +38,27 @@ export class IncentiveService {
     return this.repository.awardTaskReward(task, parent.id);
   }
 
+  async awardTaskRewardInTransaction(parent: User, task: StudyTask, connection: PoolConnection) {
+    this.assertParent(parent);
+
+    if (parent.familyId !== task.familyId) {
+      throw new AppError(403, "FORBIDDEN", "Task is outside current family");
+    }
+
+    return this.repository.awardTaskRewardInTransaction(connection, task, parent.id);
+  }
+
+  async getTaskRewardLedger(familyId: string, taskId: string) {
+    return this.repository.findTaskRewardLedger(familyId, taskId);
+  }
+
   async listWishes(user: User, childUserId?: string) {
     if (user.role === "child") {
-      return this.repository.listWishes(user.familyId, user.id);
+      return this.withRedeemRequests(await this.repository.listWishes(user.familyId, user.id));
     }
 
     const targetChildUserId = childUserId ? await this.resolveChildUserId(user, childUserId) : undefined;
-    return this.repository.listWishes(user.familyId, targetChildUserId);
+    return this.withRedeemRequests(await this.repository.listWishes(user.familyId, targetChildUserId));
   }
 
   async createWish(child: User, input: CreateWishInput) {
@@ -66,7 +81,7 @@ export class IncentiveService {
       throw new AppError(403, "FORBIDDEN", "Wish is outside current child");
     }
 
-    return wish;
+    return this.withRedeemRequest(wish);
   }
 
   async updateWish(child: User, wishId: string, input: UpdateWishInput) {
@@ -109,16 +124,7 @@ export class IncentiveService {
       return;
     }
 
-    if (user.role === "parent") {
-      if (wish.status !== "redeemed") {
-        throw new AppError(409, "WISH_NOT_DELETABLE", "Only redeemed wishes can be deleted");
-      }
-
-      await this.repository.deleteWish(wishId, "redeemed");
-      return;
-    }
-
-    throw new AppError(403, "FORBIDDEN", "Only parents or children can delete wishes");
+    throw new AppError(403, "FORBIDDEN", "Only children can delete rejected wishes");
   }
 
   async approveWish(parent: User, wishId: string, input: ApproveWishInput) {
@@ -162,7 +168,7 @@ export class IncentiveService {
     if (!result.wish) {
       throw new AppError(404, "NOT_FOUND", "Wish not found");
     }
-    return { wish: result.wish, ledger: result.ledger };
+    return { wish: await this.withRedeemRequest(result.wish), ledger: result.ledger };
   }
 
   async confirmRedeem(parent: User, wishId: string) {
@@ -173,10 +179,10 @@ export class IncentiveService {
       throw new AppError(409, "WISH_NOT_CONFIRMABLE", "Wish redemption cannot be confirmed in current status");
     }
 
-    return this.repository.confirmRedeem(wish, parent.id);
+    return this.withRedeemRequest(await this.repository.confirmRedeem(wish, parent.id));
   }
 
-  async rejectRedeem(parent: User, wishId: string) {
+  async rejectRedeem(parent: User, wishId: string, rejectReason: string) {
     this.assertParent(parent);
     const wish = await this.getFamilyWish(parent, wishId);
 
@@ -184,7 +190,11 @@ export class IncentiveService {
       throw new AppError(409, "WISH_REDEEM_NOT_REJECTABLE", "Wish redemption cannot be rejected in current status");
     }
 
-    return this.repository.rejectRedeem(wish, parent.id);
+    const result = await this.repository.rejectRedeem(wish, parent.id, rejectReason);
+    return {
+      ...result,
+      wish: await this.withRedeemRequest(result.wish)
+    };
   }
 
   private async resolveChildUserId(user: User, childUserId?: string) {
@@ -215,6 +225,15 @@ export class IncentiveService {
     }
 
     return wish;
+  }
+
+  private async withRedeemRequests(wishes: Wish[]) {
+    return Promise.all(wishes.map((wish) => this.withRedeemRequest(wish)));
+  }
+
+  private async withRedeemRequest(wish: Wish) {
+    const latestRedeemRequest = await this.repository.findLatestRedeemRequest(wish.id);
+    return latestRedeemRequest ? { ...wish, latestRedeemRequest } : wish;
   }
 
   private assertParent(user: User) {

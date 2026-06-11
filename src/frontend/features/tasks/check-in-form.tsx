@@ -6,12 +6,18 @@ import { Badge } from "@/components/ui/badge";
 import { AppButton, AppButtonLink } from "@/components/ui/button";
 import { AppCard, AppCardTitle } from "@/components/ui/card";
 import { ApiError, getTask, submitTask, uploadPhoto } from "@/features/api/client";
-import { statusLabel, statusTone } from "@/features/tasks/status";
+import { getTaskStatusLabel, getTaskStatusTone } from "@/features/tasks/status";
 import type { StudyTask } from "@/features/tasks/types";
 import { getBusinessDate } from "@/lib/business-date";
 
 const MAX_PHOTO_SIZE = 5 * 1024 * 1024;
 const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+type PhotoUploadState = {
+  status: "uploading" | "uploaded" | "error";
+  url?: string;
+  error?: string;
+};
 
 export function CheckInForm({
   taskId,
@@ -26,6 +32,8 @@ export function CheckInForm({
   const [task, setTask] = useState<StudyTask | null>(null);
   const [completed, setCompleted] = useState(false);
   const [photos, setPhotos] = useState<File[]>([]);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
+  const [photoUploadStates, setPhotoUploadStates] = useState<Record<string, PhotoUploadState>>({});
   const [childNote, setChildNote] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -60,6 +68,14 @@ export function CheckInForm({
     };
   }, [taskId]);
 
+  useEffect(() => {
+    const urls = photos.map((photo) => URL.createObjectURL(photo));
+    setPhotoPreviews(urls);
+    return () => {
+      urls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [photos]);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -81,10 +97,16 @@ export function CheckInForm({
 
     setIsSubmitting(true);
     try {
-      const uploadedPhotos = await Promise.all(photos.map((photo) => uploadPhoto(photo)));
+      const uploadedPhotos = await Promise.all(
+        photos.map((photo, index) => uploadSelectedPhoto(photo, index))
+      );
+      if (uploadedPhotos.some((url) => !url)) {
+        setError("部分图片上传失败，请在对应图片上重试后再次提交");
+        return;
+      }
       await submitTask(taskId, {
         completed: true,
-        imageUrls: uploadedPhotos.map((photo) => photo.url),
+        imageUrls: uploadedPhotos as string[],
         childNote: childNote.trim() || undefined
       });
       router.push(resultHref);
@@ -120,6 +142,36 @@ export function CheckInForm({
     }
 
     setPhotos(nextPhotos);
+    setPhotoUploadStates({});
+  }
+
+  async function uploadSelectedPhoto(photo: File, index: number) {
+    const key = getPhotoKey(photo, index);
+    const existing = photoUploadStates[key];
+    if (existing?.status === "uploaded" && existing.url) {
+      return existing.url;
+    }
+
+    setPhotoUploadStates((prev) => ({
+      ...prev,
+      [key]: { status: "uploading" }
+    }));
+
+    try {
+      const uploaded = await uploadPhoto(photo);
+      setPhotoUploadStates((prev) => ({
+        ...prev,
+        [key]: { status: "uploaded", url: uploaded.url }
+      }));
+      return uploaded.url;
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "上传失败";
+      setPhotoUploadStates((prev) => ({
+        ...prev,
+        [key]: { status: "error", error: message }
+      }));
+      return null;
+    }
   }
 
   if (isLoading) {
@@ -144,11 +196,12 @@ export function CheckInForm({
       <div className="rounded-[32px] bg-[#82d5bb] p-5 text-white shadow-[0_10px_0_rgba(114,93,66,0.08)] md:p-6">
         <div className="flex flex-wrap items-center gap-2">
           <Badge>{task.subject}</Badge>
-          <Badge tone={statusTone[task.status]}>{statusLabel[task.status]}</Badge>
+          <Badge tone={getTaskStatusTone(task)}>{getTaskStatusLabel(task)}</Badge>
         </div>
         <p className="mt-4 text-caption font-bold uppercase text-white/75">Mission check-in</p>
         <h1 className="mt-2 text-display-sm tracking-normal text-white">{task.title}</h1>
         <p className="mt-3 text-body-sm text-white/85">{task.description}</p>
+        {task.note ? <p className="mt-3 rounded-[18px] bg-white/15 p-3 text-body-sm text-white">{task.note}</p> : null}
       </div>
 
       {isFutureTask ? (
@@ -191,14 +244,15 @@ export function CheckInForm({
                 </label>
                 {photos.length > 0 ? (
                   <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-                    {photos.map((photo) => (
-                      <div
-                        key={`${photo.name}-${photo.lastModified}`}
-                        className="rounded-[20px] border-2 border-[#eadfc3] bg-[#fffdf8] p-3"
-                      >
-                        <p className="truncate text-body-sm font-medium text-ink">{photo.name}</p>
-                        <p className="mt-1 text-caption text-muted-soft">{(photo.size / 1024 / 1024).toFixed(2)} MB</p>
-                      </div>
+                    {photos.map((photo, index) => (
+                      <PhotoPreview
+                        key={getPhotoKey(photo, index)}
+                        photo={photo}
+                        previewUrl={photoPreviews[index]}
+                        index={index}
+                        uploadState={photoUploadStates[getPhotoKey(photo, index)]}
+                        onRetry={() => void uploadSelectedPhoto(photo, index)}
+                      />
                     ))}
                   </div>
                 ) : null}
@@ -234,6 +288,52 @@ export function CheckInForm({
       )}
     </div>
   );
+}
+
+function PhotoPreview({
+  photo,
+  previewUrl,
+  index,
+  uploadState,
+  onRetry
+}: {
+  photo: File;
+  previewUrl?: string;
+  index: number;
+  uploadState?: PhotoUploadState;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="rounded-[20px] border-2 border-[#eadfc3] bg-[#fffdf8] p-3">
+      {previewUrl ? (
+        <img
+          src={previewUrl}
+          alt={`待上传图片 ${index + 1}`}
+          className="mb-2 aspect-[4/3] w-full rounded-[14px] object-cover"
+        />
+      ) : null}
+      <p className="truncate text-body-sm font-medium text-ink">{photo.name}</p>
+      <p className="mt-1 text-caption text-muted-soft">{(photo.size / 1024 / 1024).toFixed(2)} MB</p>
+      {uploadState?.status === "uploading" ? (
+        <p className="mt-2 text-caption text-muted">上传中...</p>
+      ) : null}
+      {uploadState?.status === "uploaded" ? (
+        <p className="mt-2 text-caption text-[#3a8f77]">上传成功</p>
+      ) : null}
+      {uploadState?.status === "error" ? (
+        <div className="mt-2 grid gap-2">
+          <p className="text-caption text-brand-coral">{uploadState.error}</p>
+          <AppButton type="button" size="small" variant="secondary" onClick={onRetry}>
+            重试这张
+          </AppButton>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function getPhotoKey(photo: File, index: number) {
+  return `${index}:${photo.name}:${photo.size}:${photo.lastModified}`;
 }
 
 function isFutureDueDate(dueDate?: string) {

@@ -1,7 +1,5 @@
 export type TaskStatus =
   | "pending"
-  | "submitted"
-  | "ai_checking"
   | "parent_review"
   | "confirmed"
   | "needs_resubmit";
@@ -40,6 +38,11 @@ export type TaskSubmission = {
   createdAt: string;
   updatedAt: string;
   images: SubmissionImage[];
+  review: {
+    reviewResult: "pass" | "need_resubmit";
+    comment?: string;
+    reviewedAt: string;
+  } | null;
 };
 
 export type StudyTask = {
@@ -51,22 +54,21 @@ export type StudyTask = {
   taskType: TaskType;
   title: string;
   description: string;
+  note?: string;
   dueDate?: string;
   dueTime?: string;
   needPhoto?: boolean;
-  needAiCheck?: boolean;
   rewardPoints?: number;
   status: TaskStatus;
+  isOverdue?: boolean;
   isArchived?: boolean;
   confirmedAt?: string | null;
   archivedAt?: string | null;
   createdAt?: string;
   updatedAt?: string;
   submission?: TaskSubmission | null;
-  childNote?: string;
-  imageCount: number;
-  aiSummary?: string;
-  reviewNote?: string;
+  submissions?: TaskSubmission[];
+  imageCount?: number;
   latestReview?: {
     reviewResult: "pass" | "need_resubmit";
     comment?: string;
@@ -93,6 +95,12 @@ export type ParentDashboardSummary = {
 export type ParentDashboard = {
   summary: ParentDashboardSummary;
   tasks: StudyTask[];
+  child: {
+    id: string;
+    nickname: string;
+  };
+  pointAccount: ChildPointAccount;
+  metrics: MvpMetrics;
 };
 
 export type PointLedgerReason = "task_reward" | "wish_redeem" | "wish_refund";
@@ -123,6 +131,19 @@ export type ChildPointAccount = {
 
 export type WishStatus = "pending_review" | "approved" | "rejected" | "redeem_requested" | "redeemed";
 
+export type WishRedeemRequest = {
+  id: string;
+  wishId: string;
+  familyId: string;
+  childUserId: string;
+  requiredPoints: number;
+  status: "pending" | "confirmed" | "rejected";
+  rejectReason?: string;
+  parentUserId?: string;
+  requestedAt: string;
+  resolvedAt?: string;
+};
+
 export type Wish = {
   id: string;
   familyId: string;
@@ -134,7 +155,45 @@ export type Wish = {
   parentUserId?: string;
   rejectReason?: string;
   currentRedeemRequestId?: string;
+  latestRedeemRequest?: WishRedeemRequest;
   createdAt: string;
   updatedAt: string;
   redeemedAt?: string;
+};
+
+export type FamilyContext = {
+  family: {
+    id: string;
+    name: string;
+  };
+  child: {
+    id: string;
+    nickname: string;
+  };
+};
+
+export type MvpMetrics = {
+  days: number;
+  counts: {
+    createdTasks: number;
+    taskCreationDays: number;
+    dueTasks: number;
+    submittedTasks: number;
+    confirmedTasks: number;
+    confirmedWithin24h: number;
+    resubmitRequests: number;
+    resubmittedTasks: number;
+    wishesCreated: number;
+    wishesApproved: number;
+    wishesRejected: number;
+    redeemRequested: number;
+    redeemConfirmed: number;
+    redeemRejected: number;
+    wishesRedeemed: number;
+  };
+  rates: {
+    checkInCompletion: number;
+    confirmedWithin24h: number;
+    resubmitCompletion: number;
+  };
 };

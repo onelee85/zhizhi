@@ -1,11 +1,11 @@
 import { expect, type Page, test } from "@playwright/test";
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 
 test.use({ baseURL });
 
 type UserRole = "parent" | "child";
-type TaskStatus = "pending" | "submitted" | "ai_checking" | "parent_review" | "confirmed" | "needs_resubmit";
+type TaskStatus = "pending" | "parent_review" | "confirmed" | "needs_resubmit";
 
 type StudyTask = {
   id: string;

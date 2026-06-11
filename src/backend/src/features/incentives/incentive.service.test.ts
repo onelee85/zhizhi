@@ -161,7 +161,7 @@ describe("IncentiveService", () => {
       }) as IncentiveRepository
     );
 
-    const result = await service.rejectRedeem(parent, "wish-1");
+    const result = await service.rejectRedeem(parent, "wish-1", "本周无法安排");
 
     assert.equal(result.wish.status, "approved");
     assert.equal(result.ledger, refundLedger);
@@ -182,7 +182,7 @@ describe("IncentiveService", () => {
       }) as IncentiveRepository
     );
 
-    const result = await service.rejectRedeem(parent, "wish-1");
+    const result = await service.rejectRedeem(parent, "wish-1", "本周无法安排");
 
     assert.equal(result.wish.status, "approved");
     assert.equal(result.ledger, null);
@@ -195,7 +195,7 @@ describe("IncentiveService", () => {
       }) as IncentiveRepository
     );
 
-    await assert.rejects(() => service.rejectRedeem(parent, "wish-1"), (error) => {
+    await assert.rejects(() => service.rejectRedeem(parent, "wish-1", "本周无法安排"), (error) => {
       assert.equal(error instanceof AppError, true);
       assert.equal((error as AppError).code, "WISH_REDEEM_NOT_REJECTABLE");
       return true;
@@ -369,32 +369,16 @@ describe("IncentiveService", () => {
     });
   });
 
-  it("allows a parent to delete a redeemed wish in the same family", async () => {
-    let deletedStatus = "";
+  it("blocks a parent from deleting a redeemed wish", async () => {
     const service = new IncentiveService(
       mockRepository({
-        findWishById: async () => redeemedWish,
-        deleteWish: async (wishId, requiredStatus) => {
-          deletedStatus = requiredStatus;
-          return { wishId, deleted: true };
-        }
-      }) as IncentiveRepository
-    );
-
-    await service.deleteWish(parent, "wish-1");
-    assert.equal(deletedStatus, "redeemed");
-  });
-
-  it("blocks a parent from deleting a wish that is not redeemed", async () => {
-    const service = new IncentiveService(
-      mockRepository({
-        findWishById: async () => approvedWish
+        findWishById: async () => redeemedWish
       }) as IncentiveRepository
     );
 
     await assert.rejects(() => service.deleteWish(parent, "wish-1"), (error) => {
       assert.equal(error instanceof AppError, true);
-      assert.equal((error as AppError).code, "WISH_NOT_DELETABLE");
+      assert.equal((error as AppError).code, "FORBIDDEN");
       return true;
     });
   });
@@ -430,6 +414,7 @@ function mockRepository(overrides: Partial<IncentiveRepository>) {
     }),
     listLedger: async () => [],
     findWishById: async () => undefined,
+    findLatestRedeemRequest: async () => undefined,
     updateWish: async () => undefined,
     deleteWish: async (_wishId: string, requiredStatus: Wish["status"]) => ({ wishId: "", deleted: true, requiredStatus }),
     ...overrides

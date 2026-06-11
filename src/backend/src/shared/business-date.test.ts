@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { getBusinessDate, getMonthRange } from "./business-date.js";
+import { getBusinessDate, getBusinessTime, getMonthRange } from "./business-date.js";
 
 describe("business date", () => {
   it("uses Shanghai date around local midnight", () => {
@@ -17,5 +17,9 @@ describe("business date", () => {
       startDate: "2024-02-01",
       endDate: "2024-02-29"
     });
+  });
+
+  it("uses Shanghai local time for same-day due time checks", () => {
+    assert.equal(getBusinessTime(new Date("2026-06-11T12:45:00.000Z")), "20:45");
   });
 });

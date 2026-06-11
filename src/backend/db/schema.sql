@@ -50,12 +50,12 @@ create table if not exists study_task (
   task_type enum('作业', '预习', '复习', '错题', '阅读', '背诵', '练习') not null,
   title varchar(100) not null,
   description varchar(1000) not null,
+  note varchar(500) null,
   due_date date not null,
   due_time char(5) null,
   need_photo boolean not null default true,
-  need_ai_check boolean not null default false,
-  reward_points int not null default 0,
-  status enum('pending', 'submitted', 'ai_checking', 'parent_review', 'confirmed', 'needs_resubmit') not null default 'pending',
+  reward_points int not null default 1,
+  status enum('pending', 'parent_review', 'confirmed', 'needs_resubmit') not null default 'pending',
   created_at datetime(3) not null,
   updated_at datetime(3) not null,
   deleted_at datetime(3) null,
@@ -119,6 +119,24 @@ create table if not exists wish (
   constraint fk_wish_parent foreign key (parent_user_id) references `user` (id)
 ) engine = InnoDB;
 
+create table if not exists wish_redeem_request (
+  id varchar(64) primary key,
+  wish_id varchar(64) not null,
+  family_id varchar(64) not null,
+  child_user_id varchar(64) not null,
+  required_points int not null,
+  status enum('pending', 'confirmed', 'rejected') not null default 'pending',
+  reject_reason varchar(500) null,
+  parent_user_id varchar(64) null,
+  requested_at datetime(3) not null,
+  resolved_at datetime(3) null,
+  key idx_wish_redeem_request_wish (wish_id, requested_at),
+  constraint fk_wish_redeem_request_wish foreign key (wish_id) references wish (id),
+  constraint fk_wish_redeem_request_family foreign key (family_id) references family (id),
+  constraint fk_wish_redeem_request_child foreign key (child_user_id) references `user` (id),
+  constraint fk_wish_redeem_request_parent foreign key (parent_user_id) references `user` (id)
+) engine = InnoDB;
+
 create table if not exists task_submission (
   id varchar(64) primary key,
   task_id varchar(64) not null,
@@ -145,21 +163,6 @@ create table if not exists submission_image (
   constraint fk_submission_image_submission foreign key (submission_id) references task_submission (id)
 ) engine = InnoDB;
 
-create table if not exists ai_check_result (
-  id varchar(64) primary key,
-  submission_id varchar(64) not null,
-  status enum('checking', 'completed', 'failed') not null,
-  match_result varchar(100) null,
-  completion_result varchar(100) null,
-  anomaly_text varchar(1000) null,
-  suggestion varchar(1000) null,
-  raw_result json not null,
-  created_at datetime(3) not null,
-  updated_at datetime(3) not null,
-  key idx_ai_check_result_submission (submission_id),
-  constraint fk_ai_check_result_submission foreign key (submission_id) references task_submission (id)
-) engine = InnoDB;
-
 create table if not exists parent_review (
   id varchar(64) primary key,
   task_id varchar(64) not null,
@@ -169,44 +172,27 @@ create table if not exists parent_review (
   comment varchar(500) null,
   reviewed_at datetime(3) not null,
   key idx_parent_review_task (task_id, reviewed_at),
+  unique key uk_parent_review_submission (submission_id),
   constraint fk_parent_review_task foreign key (task_id) references study_task (id),
   constraint fk_parent_review_submission foreign key (submission_id) references task_submission (id),
   constraint fk_parent_review_parent foreign key (parent_user_id) references `user` (id)
 ) engine = InnoDB;
 
-create table if not exists wrong_question (
+create table if not exists product_event (
   id varchar(64) primary key,
   family_id varchar(64) not null,
-  child_user_id varchar(64) not null,
-  task_id varchar(64) null,
-  submission_id varchar(64) null,
-  subject varchar(20) not null,
-  knowledge_point varchar(100) null,
-  content varchar(1000) not null,
-  mastery_status enum('new', 'practicing', 'mastered') not null default 'new',
+  user_id varchar(64) not null,
+  child_user_id varchar(64) null,
+  event_name varchar(64) not null,
+  entity_type varchar(32) null,
+  entity_id varchar(64) null,
+  metadata_json json null,
   created_at datetime(3) not null,
-  updated_at datetime(3) not null,
-  key idx_wrong_question_child_subject (child_user_id, subject),
-  constraint fk_wrong_question_family foreign key (family_id) references family (id),
-  constraint fk_wrong_question_child foreign key (child_user_id) references `user` (id)
-) engine = InnoDB;
-
-create table if not exists weekly_report (
-  id varchar(64) primary key,
-  family_id varchar(64) not null,
-  child_user_id varchar(64) not null,
-  week_start date not null,
-  week_end date not null,
-  summary_json json not null,
-  subject_json json not null,
-  weak_points_json json not null,
-  ai_report_text text not null,
-  raw_result json not null,
-  created_at datetime(3) not null,
-  updated_at datetime(3) not null,
-  unique key uk_weekly_report_child_week (child_user_id, week_start),
-  constraint fk_weekly_report_family foreign key (family_id) references family (id),
-  constraint fk_weekly_report_child foreign key (child_user_id) references `user` (id)
+  key idx_product_event_family_created (family_id, created_at),
+  key idx_product_event_name_created (event_name, created_at),
+  constraint fk_product_event_family foreign key (family_id) references family (id),
+  constraint fk_product_event_user foreign key (user_id) references `user` (id),
+  constraint fk_product_event_child foreign key (child_user_id) references `user` (id)
 ) engine = InnoDB;
 
 set @now = utc_timestamp(3);
@@ -234,18 +220,18 @@ on duplicate key update family_id = values(family_id);
 
 insert into study_task (
   id, family_id, child_user_id, creator_user_id, subject, task_type,
-  title, description, due_date, due_time, need_photo, need_ai_check,
+  title, description, due_date, due_time, need_photo,
   reward_points, status, created_at, updated_at
 ) values
   (
     'task-math-1', 'family-1', 'child-1', 'parent-1', '数学', '练习',
     '完成数学计算练习第 3 页', '完成第 3 页全部计算题，订正错题并圈出不会的题。',
-    current_date(), '20:30', true, false, 10, 'pending', @now, @now
+    current_date(), '20:30', true, 10, 'pending', @now, @now
   ),
   (
     'task-english-1', 'family-1', 'child-1', 'parent-1', '英语', '背诵',
     '默写 Unit 2 单词', '默写 Unit 2 重点单词 20 个，拍照上传默写纸。',
-    current_date(), '21:00', true, false, 8, 'pending', @now, @now
+    current_date(), '21:00', true, 8, 'pending', @now, @now
   )
 on duplicate key update
   due_date = values(due_date),
