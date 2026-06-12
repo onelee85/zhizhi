@@ -205,12 +205,54 @@ class ChildWishesPage extends AuthenticatedApp {
     await this.expectWishStatus(input.title, "pending_review");
   }
 
-  async requestRedeem(title: string) {
+  async requestRedeem(title: string, options: { reducedMotion?: boolean; mobileWidth?: number } = {}) {
     await this.page.goto("/child/wishes");
     const wishCard = this.wishCard(title);
     await wishCard.getByRole("button", { name: "申请兑换" }).click();
-    await expect(wishCard.getByRole("status")).toHaveText("积分已扣除，等待家长确认。");
+    const celebration = this.page.locator(".wish-redeem-celebration");
+    await expect(celebration).toBeVisible();
+    await expect(celebration.locator(".wish-redeem-celebration__art")).toBeVisible();
+    await expect(celebration).toHaveText("");
+    await expect(this.page.getByText("本次扣除", { exact: false })).toHaveCount(0);
+    await expect(this.page.getByText("积分已扣除，等待家长确认。", { exact: true })).toHaveCount(0);
+    if (options.reducedMotion) {
+      await expect
+        .poll(() =>
+          celebration.locator(".wish-redeem-celebration__art").evaluate((element) =>
+            window.getComputedStyle(element).animationName
+          )
+        )
+        .toBe("none");
+    }
+    if (options.mobileWidth) {
+      const pageWidth = await this.page.evaluate(() => ({
+        clientWidth: document.documentElement.clientWidth,
+        scrollWidth: document.documentElement.scrollWidth
+      }));
+      expect(pageWidth.clientWidth).toBe(options.mobileWidth);
+      expect(pageWidth.scrollWidth).toBe(options.mobileWidth);
+    }
+    await this.page.keyboard.press("Escape");
+    await expect(celebration).toBeHidden();
+    await expect(this.page.getByRole("status")).toHaveText("兑换申请成功。");
+    await expect(this.page.locator(".wish-redeem-celebration")).toHaveCount(0);
     await this.expectWishStatus(title, "redeem_requested");
+  }
+
+  async muteRewardSoundAndExpectPersistent() {
+    await this.page.goto("/child/wishes");
+    const enabledToggle = this.page.getByRole("button", { name: "奖励音效：开启" });
+    await expect(enabledToggle).toHaveAttribute("aria-pressed", "true");
+    await enabledToggle.click();
+    await expect(this.page.getByRole("button", { name: "奖励音效：静音" })).toHaveAttribute(
+      "aria-pressed",
+      "false"
+    );
+    await this.page.reload();
+    await expect(this.page.getByRole("button", { name: "奖励音效：静音" })).toHaveAttribute(
+      "aria-pressed",
+      "false"
+    );
   }
 
   async expectProgress(title: string, currentPoints: number, requiredPoints: number) {
@@ -298,6 +340,8 @@ class ParentWishesPage extends AuthenticatedApp {
 }
 
 test.describe("家庭学习任务完整业务流", () => {
+  test.describe.configure({ timeout: 60_000 });
+
   test("家长发布任务，孩子拍照打卡，家长审核发积分，孩子兑换心愿", async ({ page }) => {
     const auth = new AuthPage(page);
     const unique = Date.now();
@@ -345,7 +389,10 @@ test.describe("家庭学习任务完整业务流", () => {
     await auth.loginAsChild();
     const balanceBeforeRequest = await childWishes.currentBalance();
     await childWishes.expectProgress(wish.title, balanceBeforeRequest, rewardPoints);
-    await childWishes.requestRedeem(wish.title);
+    await childWishes.muteRewardSoundAndExpectPersistent();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await childWishes.requestRedeem(wish.title, { reducedMotion: true, mobileWidth: 390 });
     await expect.poll(() => childWishes.currentBalance(), {
       message: "孩子申请兑换时立即扣减积分"
     }).toBe(balanceBeforeRequest - rewardPoints);

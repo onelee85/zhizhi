@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { AppButton, AppButtonLink } from "@/components/ui/button";
 import { AppCard, AppCardTitle } from "@/components/ui/card";
@@ -13,7 +13,12 @@ import {
   requestWishRedeem
 } from "@/features/api/client";
 import { pointLedgerReasonLabel, wishStatusLabel, wishStatusTone } from "@/features/incentives/wish-status";
+import {
+  WishRedeemCelebration
+} from "@/features/incentives/wish-redeem-celebration";
 import type { ChildPointAccount, PointLedger, Wish } from "@/features/tasks/types";
+
+const WISH_REDEEM_SOUND_STORAGE_KEY = "zhizhi:wish-redeem-sound-enabled";
 
 export function ChildWishlist() {
   const [account, setAccount] = useState<ChildPointAccount | null>(null);
@@ -23,8 +28,10 @@ export function ChildWishlist() {
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [actionWishId, setActionWishId] = useState<string | null>(null);
-  const [redeemNoticeWishId, setRedeemNoticeWishId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Wish | null>(null);
+  const [celebrationOpen, setCelebrationOpen] = useState(false);
+  const [redeemAnnouncement, setRedeemAnnouncement] = useState("");
+  const [soundEnabled, setSoundEnabled] = useState(true);
 
   useEffect(() => {
     let active = true;
@@ -58,10 +65,37 @@ export function ChildWishlist() {
     };
   }, []);
 
+  useEffect(() => {
+    try {
+      const storedPreference = window.localStorage.getItem(WISH_REDEEM_SOUND_STORAGE_KEY);
+      if (storedPreference !== null) {
+        setSoundEnabled(storedPreference === "true");
+      }
+    } catch {
+      // Storage can be unavailable in private or restricted browser contexts.
+    }
+  }, []);
+
+  const closeCelebration = useCallback(() => {
+    setCelebrationOpen(false);
+  }, []);
+
+  function toggleSound() {
+    setSoundEnabled((current) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem(WISH_REDEEM_SOUND_STORAGE_KEY, String(next));
+      } catch {
+        // The preference remains active for the current page when storage fails.
+      }
+      return next;
+    });
+  }
+
   async function handleRedeem(wish: Wish) {
     setError("");
     setMessage("");
-    setRedeemNoticeWishId(null);
+    setRedeemAnnouncement("");
     setActionWishId(wish.id);
 
     try {
@@ -77,7 +111,8 @@ export function ChildWishlist() {
             }
           : prev
       );
-      setRedeemNoticeWishId(wish.id);
+      setRedeemAnnouncement("兑换申请成功。");
+      setCelebrationOpen(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "申请兑换失败");
     } finally {
@@ -92,7 +127,7 @@ export function ChildWishlist() {
 
     setError("");
     setMessage("");
-    setRedeemNoticeWishId(null);
+    setRedeemAnnouncement("");
     setActionWishId(deleteTarget.id);
 
     try {
@@ -119,9 +154,20 @@ export function ChildWishlist() {
             把想实现的小目标放进清单，积分够了就发起兑换申请。
           </p>
         </div>
-        <div className="rounded-[24px] bg-[#82d5bb] px-6 py-4 text-center text-white shadow-[inset_0_-5px_0_rgba(68,129,111,0.35)]">
-          <p className="text-caption font-semibold text-white/80">当前积分</p>
-          <p className="mt-1 text-display-sm tracking-normal text-white">{isLoading ? "-" : balance}</p>
+        <div className="grid gap-2">
+          <div className="rounded-[24px] bg-[#82d5bb] px-6 py-4 text-center text-white shadow-[inset_0_-5px_0_rgba(68,129,111,0.35)]">
+            <p className="text-caption font-semibold text-white/80">当前积分</p>
+            <p className="mt-1 text-display-sm tracking-normal text-white">{isLoading ? "-" : balance}</p>
+          </div>
+          <button
+            type="button"
+            className="wish-redeem-sound-toggle"
+            aria-pressed={soundEnabled}
+            onClick={toggleSound}
+          >
+            <span aria-hidden="true">{soundEnabled ? "♪" : "×"}</span>
+            奖励音效：{soundEnabled ? "开启" : "静音"}
+          </button>
         </div>
       </div>
 
@@ -152,7 +198,6 @@ export function ChildWishlist() {
               {wishes.map((wish) => {
                 const requiredPoints = wish.requiredPoints ?? 0;
                 const canRedeem = wish.status === "approved" && balance >= requiredPoints;
-                const showRedeemNotice = redeemNoticeWishId === wish.id;
                 const remainingPoints = Math.max(0, requiredPoints - balance);
                 const progress = requiredPoints > 0 ? Math.min(100, Math.round((balance / requiredPoints) * 100)) : 0;
 
@@ -187,29 +232,15 @@ export function ChildWishlist() {
                         </div>
                       </div>
                     ) : null}
-                    {wish.status === "approved" || showRedeemNotice ? (
+                    {wish.status === "approved" ? (
                       <div className="flex items-center md:col-start-2 md:row-start-1 md:justify-end">
-                        {showRedeemNotice ? (
-                          <div
-                            role="status"
-                            aria-live="polite"
-                            className="relative max-w-[280px] rounded-[18px] border-2 border-[#74c6aa] bg-[#e8f8f0] px-4 py-3 text-body-sm font-bold leading-relaxed text-[#397361] shadow-[0_5px_0_rgba(68,129,111,0.14)]"
-                          >
-                            <span
-                              aria-hidden="true"
-                              className="absolute -top-[8px] left-7 h-3.5 w-3.5 rotate-45 border-l-2 border-t-2 border-[#74c6aa] bg-[#e8f8f0] md:-left-[8px] md:top-1/2 md:-translate-y-1/2 md:border-b-2 md:border-l-2 md:border-t-0"
-                            />
-                            积分已扣除，等待家长确认。
-                          </div>
-                        ) : (
-                          <AppButton
-                            type="button"
-                            disabled={!canRedeem || actionWishId === wish.id}
-                            onClick={() => void handleRedeem(wish)}
-                          >
-                            {actionWishId === wish.id ? "申请中..." : canRedeem ? "申请兑换" : "积分不足"}
-                          </AppButton>
-                        )}
+                        <AppButton
+                          type="button"
+                          disabled={!canRedeem || actionWishId === wish.id}
+                          onClick={() => void handleRedeem(wish)}
+                        >
+                          {actionWishId === wish.id ? "申请中..." : canRedeem ? "申请兑换" : "积分不足"}
+                        </AppButton>
                       </div>
                     ) : null}
                     {wish.status === "rejected" ? (
@@ -273,6 +304,15 @@ export function ChildWishlist() {
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => void handleDelete()}
       />
+
+      <WishRedeemCelebration
+        open={celebrationOpen}
+        soundEnabled={soundEnabled}
+        onClose={closeCelebration}
+      />
+      <p className="sr-only" role="status" aria-live="polite">
+        {redeemAnnouncement}
+      </p>
     </div>
   );
 }
